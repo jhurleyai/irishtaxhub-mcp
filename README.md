@@ -29,10 +29,19 @@ pip install fastmcp
 
 Set environment variables (or copy `.env.example` to `.env`):
 
+**For production use:**
+```bash
+export IRISHTAXHUB_BASE_URL="https://prod.aws.irishtaxhub.ie"
+export IRISHTAXHUB_TIMEOUT="30"
+# OpenAPI source (file or URL). Defaults to "$IRISHTAXHUB_BASE_URL/apispec_1.json".
+export IRISHTAXHUB_OPENAPI="https://prod.aws.irishtaxhub.ie/apispec_1.json"
+export IRISHTAXHUB_DEVELOPMENT_MODE=false
+```
+
+**For local development (if running the API locally):**
 ```bash
 export IRISHTAXHUB_BASE_URL="http://localhost:5000"
 export IRISHTAXHUB_TIMEOUT="30"
-# OpenAPI source (file or URL). Defaults to "$IRISHTAXHUB_BASE_URL/openapi.json".
 export IRISHTAXHUB_OPENAPI="http://localhost:5000/openapi.json"
 export IRISHTAXHUB_DEVELOPMENT_MODE=true
 ```
@@ -54,6 +63,23 @@ fastmcp run src/irishtaxhub_mcp/server.py
 
 Add an MCP server entry to your Claude Desktop config (replace path as needed):
 
+**For production use:**
+```json
+{
+  "mcpServers": {
+    "irishtaxhub": {
+      "command": "python",
+      "args": ["-m", "irishtaxhub_mcp.server"],
+      "env": {
+        "IRISHTAXHUB_BASE_URL": "https://prod.aws.irishtaxhub.ie",
+        "IRISHTAXHUB_OPENAPI": "https://prod.aws.irishtaxhub.ie/apispec_1.json"
+      }
+    }
+  }
+}
+```
+
+**For local development:**
 ```json
 {
   "mcpServers": {
@@ -62,6 +88,7 @@ Add an MCP server entry to your Claude Desktop config (replace path as needed):
       "args": ["-m", "irishtaxhub_mcp.server"],
       "env": {
         "IRISHTAXHUB_BASE_URL": "http://localhost:5000",
+        "IRISHTAXHUB_OPENAPI": "http://localhost:5000/openapi.json"
       }
     }
   }

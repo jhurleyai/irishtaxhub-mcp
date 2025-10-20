@@ -159,5 +159,9 @@ def validate_body(spec: Dict[str, Any], path: str, method: str, body: Optional[D
     schema = get_request_body_schema(spec, path, method)
     if not schema or body is None:
         return
-    # jsonschema Draft 7 is sufficient for Swagger 2.0 definitions
-    Draft7Validator(schema).validate(body)
+    # Create validator with the full spec as the reference resolver context
+    # This allows $ref resolution to work correctly
+    from jsonschema import RefResolver
+    resolver = RefResolver.from_schema(spec)
+    validator = Draft7Validator(schema, resolver=resolver)
+    validator.validate(body)
