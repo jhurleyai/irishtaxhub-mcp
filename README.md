@@ -135,3 +135,4 @@ Dynamic discovery + invocation:
 - Tools call your deployed HTTP API; they do not import internal Python modules. This keeps the MCP server lightweight and decoupled.
 - Dynamic tools load your OpenAPI definition from a file or via HTTP. For local development, you can point `IRISHTAXHUB_OPENAPI` at your repo’s `openapi.yaml` — Jinja templating is supported.
 - If you prefer in-process usage, you can create another variant inside the API repo that imports facades directly.
+
