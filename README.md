@@ -1,8 +1,8 @@
 # IrishTaxHub MCP Server
 
-Model Context Protocol (MCP) server that exposes IrishTaxHub API operations as tools.
+Model Context Protocol (MCP) server that exposes IrishTaxHub API operations as tools for Claude and other LLM clients.
 
-This server now uses FastMCP v2 for a simpler, production-ready implementation.
+Built with FastMCP v2 for a simpler, production-ready implementation.
 
 ## Features
 - Dynamic OpenAPI-powered tools only:
