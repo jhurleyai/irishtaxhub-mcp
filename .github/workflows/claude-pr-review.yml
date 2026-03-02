@@ -27,7 +27,53 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           track_progress: true
           prompt: |
-            /code-review --comment
+            Review pull request #${{ github.event.pull_request.number }} in ${{ github.repository }}.
+
+            ## Pre-flight
+
+            First, check if this PR needs review. Skip and post nothing if:
+            - The PR is a trivial change that is obviously correct (e.g. typo fix, version bump)
+            - Claude has already reviewed this PR (check `gh pr view` comments)
+
+            ## Review process
+
+            1. Read all relevant CLAUDE.md files (root + any in directories containing changed files)
+            2. View the PR diff with `gh pr diff`
+            3. Analyse the changes for:
+               - CLAUDE.md guideline violations (quote the exact rule being broken)
+               - Bugs that will definitely cause incorrect behaviour regardless of inputs
+               - Security vulnerabilities in the changed code
+               - Code that will fail to compile, parse, or run (syntax errors, missing imports, type errors)
+
+            ## Confidence filtering — CRITICAL
+
+            Only flag issues you are highly confident about. Do NOT flag:
+            - Pre-existing issues not introduced in this PR
+            - Code style or quality concerns (unless explicitly required by CLAUDE.md)
+            - Potential issues that depend on specific inputs or runtime state
+            - Subjective suggestions or improvements
+            - Issues a linter will catch
+            - Pedantic nitpicks a senior engineer would not flag
+            - General concerns like "add more tests" or "consider error handling"
+            - Issues with lint ignore comments
+
+            If you are not certain an issue is real, do not flag it. False positives erode trust.
+
+            ## Posting feedback
+
+            For each confirmed issue, post an inline comment using `mcp__github_inline_comment__create_inline_comment`:
+            - Brief description of the issue
+            - For small self-contained fixes, include a committable suggestion block
+            - For larger fixes, describe the issue and suggested fix without a suggestion block
+            - Only ONE comment per unique issue — no duplicates
+
+            When linking to code, use the format: https://github.com/${{ github.repository }}/blob/{full-sha}/path/file#L{start}-L{end}
+            Always use the full git SHA (not abbreviated).
+
+            If NO issues are found, post a single comment using `gh pr comment`:
+            "No issues found. Checked for bugs and CLAUDE.md compliance."
+
+            Do NOT post a summary comment if you posted inline comments — the inline comments speak for themselves.
           claude_args: |
             --model claude-sonnet-4-5-20250929
             --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh issue view:*),Bash(gh search:*),Bash(gh issue list:*),Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*)"
