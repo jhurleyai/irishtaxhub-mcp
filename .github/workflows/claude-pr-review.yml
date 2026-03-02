@@ -70,10 +70,17 @@ jobs:
             When linking to code, use the format: https://github.com/${{ github.repository }}/blob/{full-sha}/path/file#L{start}-L{end}
             Always use the full git SHA (not abbreviated).
 
-            If NO issues are found, post a single comment using `gh pr comment`:
-            "No issues found. Checked for bugs and CLAUDE.md compliance."
+            After posting inline comments (or if none were needed), post a brief summary comment using `gh pr comment` with this format:
 
-            Do NOT post a summary comment if you posted inline comments — the inline comments speak for themselves.
+            ## Code Review
+
+            **{N} issue(s) found** (or "No issues found")
+
+            {If issues were found, list each as a single bullet: file:line — brief description}
+
+            Checked for bugs and CLAUDE.md compliance.
+
+            Keep it short — no more than 10 lines. The inline comments have the details.
           claude_args: |
             --model claude-sonnet-4-5-20250929
             --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh issue view:*),Bash(gh search:*),Bash(gh issue list:*),Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*)"
