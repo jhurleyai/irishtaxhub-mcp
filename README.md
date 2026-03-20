@@ -135,3 +135,24 @@ Dynamic discovery + invocation:
 - Tools call your deployed HTTP API; they do not import internal Python modules. This keeps the MCP server lightweight and decoupled.
 - Dynamic tools load your OpenAPI definition from a file or via HTTP. For local development, you can point `IRISHTAXHUB_OPENAPI` at your repo’s `openapi.yaml` — Jinja templating is supported.
 - If you prefer in-process usage, you can create another variant inside the API repo that imports facades directly.
+
+## Claude PR Review (GitHub Action)
+
+This repo includes a GitHub Action (`.github/workflows/claude-pr-review.yml`) that automatically reviews PRs using Claude. It requires a `CLAUDE_CODE_OAUTH_TOKEN` secret.
+
+### Generating the token
+
+1. Run `claude setup-token` in your terminal — this opens a browser to authenticate with your Claude account and outputs an OAuth token
+2. Copy the token
+
+### Setting the secret
+
+```bash
+gh secret set CLAUDE_CODE_OAUTH_TOKEN --repo jhurleyai/irishtaxhub-mcp
+```
+
+Paste the token when prompted.
+
+### When to regenerate
+
+The token is tied to your Claude subscription. If your subscription lapses and you renew, the existing token is invalidated — you must run `claude setup-token` again and update the secret.
