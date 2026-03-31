@@ -18,8 +18,9 @@ resource "aws_acm_certificate" "cert" {
   }
 }
 
+# Only create domain + mapping when cert is validated
 resource "aws_apigatewayv2_domain_name" "custom" {
-  count       = var.create_domain ? 1 : 0
+  count       = var.create_domain && var.certificate_validated ? 1 : 0
   domain_name = var.domain_name
 
   domain_name_configuration {
@@ -34,7 +35,7 @@ resource "aws_apigatewayv2_domain_name" "custom" {
 }
 
 resource "aws_apigatewayv2_api_mapping" "custom" {
-  count       = var.create_domain ? 1 : 0
+  count       = var.create_domain && var.certificate_validated ? 1 : 0
   api_id      = var.api_id
   domain_name = aws_apigatewayv2_domain_name.custom[0].id
   stage       = var.api_stage_id
