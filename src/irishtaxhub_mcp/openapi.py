@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import asyncio
 import json
 import os
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import httpx
 import yaml
@@ -12,7 +11,9 @@ from jsonschema import Draft7Validator
 
 
 class OpenAPILoader:
-    def __init__(self, base_url: str, openapi_source: Optional[str] = None, timeout: float = 30.0) -> None:
+    def __init__(
+        self, base_url: str, openapi_source: Optional[str] = None, timeout: float = 30.0
+    ) -> None:
         self.base_url = base_url.rstrip("/")
         self.source = openapi_source
         self.timeout = timeout
@@ -64,7 +65,11 @@ class OpenAPILoader:
         if "{%" in raw:
             template = Template(raw)
             # Allow override via env; default True for local dev
-            dev_mode = os.getenv("IRISHTAXHUB_DEVELOPMENT_MODE", "true").lower() in {"1", "true", "yes"}
+            dev_mode = os.getenv("IRISHTAXHUB_DEVELOPMENT_MODE", "true").lower() in {
+                "1",
+                "true",
+                "yes",
+            }
             rendered = template.render(development_mode=dev_mode)
             return yaml.safe_load(rendered)
         # Try JSON then YAML
@@ -77,7 +82,6 @@ class OpenAPILoader:
 def list_endpoints(spec: Dict[str, Any], tag: Optional[str] = None) -> List[Dict[str, Any]]:
     results: List[Dict[str, Any]] = []
     paths = spec.get("paths", {})
-    base_path = spec.get("basePath", "")
     for path, ops in paths.items():
         for method, op in ops.items():
             if method.lower() not in {"get", "post", "put", "delete", "patch"}:
@@ -112,7 +116,9 @@ def _resolve_ref(spec: Dict[str, Any], ref: str) -> Dict[str, Any]:
     return node
 
 
-def get_request_body_schema(spec: Dict[str, Any], path: str, method: str) -> Optional[Dict[str, Any]]:
+def get_request_body_schema(
+    spec: Dict[str, Any], path: str, method: str
+) -> Optional[Dict[str, Any]]:
     method = method.lower()
     # Try the exact path first
     op = spec.get("paths", {}).get(path, {}).get(method)
@@ -155,13 +161,16 @@ def normalize_path(spec: Dict[str, Any], path: str) -> str:
     return base.rstrip("/") + path
 
 
-def validate_body(spec: Dict[str, Any], path: str, method: str, body: Optional[Dict[str, Any]]) -> None:
+def validate_body(
+    spec: Dict[str, Any], path: str, method: str, body: Optional[Dict[str, Any]]
+) -> None:
     schema = get_request_body_schema(spec, path, method)
     if not schema or body is None:
         return
     # Create validator with the full spec as the reference resolver context
     # This allows $ref resolution to work correctly
     from jsonschema import RefResolver
+
     resolver = RefResolver.from_schema(spec)
     validator = Draft7Validator(schema, resolver=resolver)
     validator.validate(body)
