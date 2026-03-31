@@ -12,8 +12,19 @@ provider "aws" {
   region = var.region
 }
 
+provider "aws" {
+  alias  = "us_east_1"
+  region = "us-east-1"
+}
+
 module "api_lambda" {
-  source           = "../../modules/api_lambda"
+  source = "../../modules/api_lambda"
+
+  providers = {
+    aws           = aws
+    aws.us_east_1 = aws.us_east_1
+  }
+
   name             = var.name
   environment      = "stage"
   region           = var.region

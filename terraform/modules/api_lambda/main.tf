@@ -1,8 +1,9 @@
 terraform {
   required_providers {
     aws = {
-      source  = "hashicorp/aws"
-      version = ">= 5.0"
+      source                = "hashicorp/aws"
+      version               = ">= 5.0"
+      configuration_aliases = [aws.us_east_1]
     }
   }
 }
@@ -206,6 +207,11 @@ locals {
 
 module "streaming_domain" {
   source = "../streaming_domain"
+
+  providers = {
+    aws           = aws
+    aws.us_east_1 = aws.us_east_1
+  }
 
   create_domain                = var.create_streaming_domain
   domain_name                  = var.streaming_domain_name
