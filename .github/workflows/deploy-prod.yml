@@ -75,4 +75,7 @@ jobs:
             -var "lambda_s3_key=${{ steps.s3key.outputs.s3_key }}" \
             -var 'env_vars={APP_ENV="production",LOG_LEVEL="INFO"}' \
             -var "certificate_validated=true" \
-            -var "lambda_web_adapter_layer_arn=arn:aws:lambda:eu-west-1:753240598075:layer:LambdaAdapterLayerX86:25"
+            -var "lambda_web_adapter_layer_arn=arn:aws:lambda:eu-west-1:753240598075:layer:LambdaAdapterLayerX86:25" \
+            -var "create_streaming_domain=true" \
+            -var "streaming_certificate_validated=false" \
+            -var "streaming_domain_name=mcp-prod.aws.irishtaxhub.ie"

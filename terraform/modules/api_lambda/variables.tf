@@ -130,3 +130,9 @@ variable "streaming_domain_name" {
   type        = string
   default     = ""
 }
+
+variable "streaming_certificate_validated" {
+  description = "Set to true after streaming ACM cert DNS validation is complete"
+  type        = bool
+  default     = false
+}
