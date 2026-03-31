@@ -215,6 +215,7 @@ module "streaming_domain" {
 
   create_domain                = var.create_streaming_domain
   domain_name                  = var.streaming_domain_name
+  certificate_validated        = var.streaming_certificate_validated
   lambda_function_url_hostname = local.lambda_url_hostname
   tags                         = var.tags
 }

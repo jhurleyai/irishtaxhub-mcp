@@ -74,6 +74,12 @@ variable "streaming_domain_name" {
   default     = ""
 }
 
+variable "streaming_certificate_validated" {
+  description = "Set to true after streaming ACM cert is validated"
+  type        = bool
+  default     = false
+}
+
 variable "stage_domain" {
   description = "Stage environment domain name"
   type        = string

@@ -21,16 +21,9 @@ resource "aws_acm_certificate" "streaming_cert" {
   }
 }
 
-# Terraform will wait here until DNS validation records are created
-# and the certificate status becomes ISSUED
-resource "aws_acm_certificate_validation" "streaming_cert" {
-  count           = var.create_domain ? 1 : 0
-  provider        = aws.us_east_1
-  certificate_arn = aws_acm_certificate.streaming_cert[0].arn
-}
-
+# CloudFront only created after cert is validated
 resource "aws_cloudfront_distribution" "streaming" {
-  count   = var.create_domain ? 1 : 0
+  count   = var.create_domain && var.certificate_validated ? 1 : 0
   enabled = true
   aliases = [var.domain_name]
 
@@ -53,7 +46,7 @@ resource "aws_cloudfront_distribution" "streaming" {
 
     forwarded_values {
       query_string = true
-      headers      = ["Accept", "Authorization", "Content-Type", "Origin"]
+      headers      = ["Accept", "Authorization", "Content-Type", "Origin", "Mcp-Session-Id"]
 
       cookies {
         forward = "all"
@@ -82,6 +75,4 @@ resource "aws_cloudfront_distribution" "streaming" {
   }
 
   tags = var.tags
-
-  depends_on = [aws_acm_certificate_validation.streaming_cert]
 }

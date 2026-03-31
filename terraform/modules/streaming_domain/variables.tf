@@ -15,6 +15,12 @@ variable "lambda_function_url_hostname" {
   type        = string
 }
 
+variable "certificate_validated" {
+  description = "Set to true after ACM cert DNS validation is complete. Controls CloudFront creation."
+  type        = bool
+  default     = false
+}
+
 variable "tags" {
   description = "Tags to apply to resources"
   type        = map(string)

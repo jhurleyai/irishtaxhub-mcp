@@ -51,9 +51,10 @@ module "api_lambda" {
   certificate_validated = var.certificate_validated
 
   # Streaming / MCP support
-  lambda_web_adapter_layer_arn = var.lambda_web_adapter_layer_arn
-  create_streaming_domain      = var.create_streaming_domain
-  streaming_domain_name        = var.streaming_domain_name
+  lambda_web_adapter_layer_arn    = var.lambda_web_adapter_layer_arn
+  create_streaming_domain         = var.create_streaming_domain
+  streaming_domain_name           = var.streaming_domain_name
+  streaming_certificate_validated = var.streaming_certificate_validated
 }
 
 output "prod_api_url" {
