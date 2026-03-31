@@ -131,9 +131,10 @@ resource "aws_lambda_permission" "apigw_invoke" {
 module "custom_domain" {
   source = "../custom_domain"
 
-  create_domain = var.create_domain
-  domain_name   = var.domain_name
-  api_id        = aws_apigatewayv2_api.http.id
-  api_stage_id  = aws_apigatewayv2_stage.env.id
-  tags          = var.tags
+  create_domain         = var.create_domain
+  domain_name           = var.domain_name
+  certificate_validated = var.certificate_validated
+  api_id                = aws_apigatewayv2_api.http.id
+  api_stage_id          = aws_apigatewayv2_stage.env.id
+  tags                  = var.tags
 }

@@ -74,6 +74,12 @@ variable "domain_name" {
   default     = ""
 }
 
+variable "certificate_validated" {
+  description = "Set to true after ACM certificate DNS validation is complete"
+  type        = bool
+  default     = false
+}
+
 variable "python_runtime" {
   description = "Python runtime version for Lambda"
   type        = string

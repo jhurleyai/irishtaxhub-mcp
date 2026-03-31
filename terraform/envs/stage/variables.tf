@@ -50,6 +50,12 @@ variable "env_vars" {
   default     = {}
 }
 
+variable "certificate_validated" {
+  description = "Set to true after ACM cert DNS validation is complete"
+  type        = bool
+  default     = false
+}
+
 variable "stage_domain" {
   description = "Stage environment domain name"
   type        = string
