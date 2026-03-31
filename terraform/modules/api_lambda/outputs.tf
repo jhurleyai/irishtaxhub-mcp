@@ -57,3 +57,34 @@ output "dns_setup_instructions" {
   description = "Instructions for setting up DNS records at external provider"
   value       = module.custom_domain.dns_setup_instructions
 }
+
+# Streaming outputs
+output "lambda_function_url" {
+  description = "Lambda Function URL for MCP streaming endpoint"
+  value       = aws_lambda_function_url.streaming.function_url
+}
+
+output "streaming_lambda_function_name" {
+  value       = aws_lambda_function.streaming.function_name
+  description = "Streaming Lambda function name"
+}
+
+output "streaming_custom_domain_url" {
+  description = "Custom domain URL for streaming/MCP endpoint (if created)"
+  value       = module.streaming_domain.streaming_url
+}
+
+output "streaming_certificate_validation_records" {
+  description = "DNS records required for streaming domain ACM validation"
+  value       = module.streaming_domain.certificate_validation_records
+}
+
+output "streaming_cloudfront_domain" {
+  description = "CloudFront distribution domain for streaming (create CNAME to this)"
+  value       = module.streaming_domain.cloudfront_domain_name
+}
+
+output "streaming_dns_instructions" {
+  description = "Instructions for configuring streaming domain DNS"
+  value       = module.streaming_domain.dns_configuration_instructions
+}

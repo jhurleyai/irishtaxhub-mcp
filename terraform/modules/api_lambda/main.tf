@@ -1,8 +1,9 @@
 terraform {
   required_providers {
     aws = {
-      source  = "hashicorp/aws"
-      version = ">= 5.0"
+      source                = "hashicorp/aws"
+      version               = ">= 5.0"
+      configuration_aliases = [aws.us_east_1]
     }
   }
 }
@@ -137,4 +138,83 @@ module "custom_domain" {
   api_id                = aws_apigatewayv2_api.http.id
   api_stage_id          = aws_apigatewayv2_stage.env.id
   tags                  = var.tags
+}
+
+############################
+# Streaming Lambda (MCP SSE support via Lambda Function URL)
+############################
+
+resource "aws_lambda_function" "streaming" {
+  function_name = "${local.full_name}-streaming"
+  role          = aws_iam_role.lambda_role.arn
+  runtime       = var.python_runtime
+  handler       = var.lambda_web_adapter_layer_arn == "" ? "lambda_handler.handler" : "run.sh"
+
+  s3_bucket        = var.lambda_s3_bucket
+  s3_key           = var.lambda_s3_key
+  source_code_hash = var.lambda_s3_key
+
+  memory_size = var.lambda_memory_mb
+  timeout     = var.lambda_timeout_seconds
+
+  layers = var.lambda_web_adapter_layer_arn == "" ? [] : [var.lambda_web_adapter_layer_arn]
+
+  environment {
+    variables = merge(
+      var.env_vars,
+      {
+        AWS_LAMBDA_EXEC_WRAPPER = var.lambda_web_adapter_layer_arn == "" ? "/var/task/bootstrap" : "/opt/bootstrap"
+        AWS_LWA_INVOKE_MODE     = "response_stream"
+        AWS_LWA_PORT            = "8080"
+      }
+    )
+  }
+
+  tags = merge(var.tags, {
+    Purpose = "MCP streaming endpoint"
+  })
+}
+
+resource "aws_cloudwatch_log_group" "streaming_lambda" {
+  name              = "/aws/lambda/${local.full_name}-streaming"
+  retention_in_days = var.log_retention_days
+  tags              = var.tags
+}
+
+resource "aws_lambda_function_url" "streaming" {
+  function_name      = aws_lambda_function.streaming.function_name
+  authorization_type = "NONE"
+  invoke_mode        = "RESPONSE_STREAM"
+
+  cors {
+    allow_credentials = false
+    allow_headers     = ["content-type", "authorization", "accept", "mcp-session-id"]
+    allow_methods     = ["*"]
+    allow_origins     = ["*"]
+    expose_headers    = ["mcp-session-id"]
+    max_age           = 86400
+  }
+}
+
+# Extract hostname from Lambda Function URL
+locals {
+  lambda_url_hostname = replace(replace(aws_lambda_function_url.streaming.function_url, "https://", ""), "/", "")
+}
+
+############################
+# Streaming Custom Domain (CloudFront)
+############################
+
+module "streaming_domain" {
+  source = "../streaming_domain"
+
+  providers = {
+    aws           = aws
+    aws.us_east_1 = aws.us_east_1
+  }
+
+  create_domain                = var.create_streaming_domain
+  domain_name                  = var.streaming_domain_name
+  lambda_function_url_hostname = local.lambda_url_hostname
+  tags                         = var.tags
 }

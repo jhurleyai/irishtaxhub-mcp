@@ -24,6 +24,13 @@ echo "> Copying application code"
 cp -R "$APP_ROOT/src/irishtaxhub_mcp" "$BUILD_DIR/"
 cp "$APP_ROOT/lambda_handler.py" "$BUILD_DIR/"
 
+# Copy startup script for Lambda Web Adapter (streaming support)
+if [ -f "$APP_ROOT/run.sh" ]; then
+  echo "> Found run.sh; bundling for Lambda Web Adapter"
+  cp "$APP_ROOT/run.sh" "$BUILD_DIR/"
+  chmod +x "$BUILD_DIR/run.sh"
+fi
+
 # Create zip
 echo "> Creating zip at $DIST_DIR/$ZIP_NAME"
 (cd "$BUILD_DIR" && zip -rq "$DIST_DIR/$ZIP_NAME" .)
