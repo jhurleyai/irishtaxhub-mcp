@@ -46,7 +46,7 @@ module "api_lambda" {
     Environment = "stage"
   }
 
-  create_domain         = true
+  create_domain         = false
   domain_name           = var.stage_domain
   certificate_validated = var.certificate_validated
 
