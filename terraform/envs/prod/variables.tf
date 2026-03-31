@@ -86,7 +86,7 @@ variable "prod_domain" {
   default     = "mcp-prod.aws.irishtaxhub.ie"
 
   validation {
-    condition     = can(regex("^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\\.)+[a-zA-Z]{2,}$", var.prod_domain))
-    error_message = "Prod domain must be a valid FQDN format."
+    condition     = var.prod_domain == "" || can(regex("^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\\.)+[a-zA-Z]{2,}$", var.prod_domain))
+    error_message = "Prod domain must be empty or a valid FQDN format."
   }
 }

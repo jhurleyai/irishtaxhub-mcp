@@ -86,7 +86,7 @@ variable "stage_domain" {
   default     = "mcp-stage.aws.irishtaxhub.ie"
 
   validation {
-    condition     = can(regex("^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\\.)+[a-zA-Z]{2,}$", var.stage_domain))
-    error_message = "Stage domain must be a valid FQDN format."
+    condition     = var.stage_domain == "" || can(regex("^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\\.)+[a-zA-Z]{2,}$", var.stage_domain))
+    error_message = "Stage domain must be empty or a valid FQDN format."
   }
 }
