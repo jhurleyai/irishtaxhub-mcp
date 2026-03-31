@@ -17,6 +17,7 @@ python-dotenv = ">=1.0.1"
 PyYAML = ">=6.0"
 Jinja2 = ">=3.1"
 jsonschema = ">=4.22"
+mangum = ">=0.19"
 
 [tool.poetry.scripts]
 irishtaxhub-mcp = "irishtaxhub_mcp.server:run"
