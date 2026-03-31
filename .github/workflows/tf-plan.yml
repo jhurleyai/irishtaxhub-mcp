@@ -75,6 +75,7 @@ jobs:
             -var "lambda_s3_bucket=${{ secrets.ARTIFACTS_BUCKET }}" \
             -var "lambda_s3_key=${{ env.STAGE_KEY }}" \
             -var 'env_vars={APP_ENV="development"}' \
+            -var "certificate_validated=true" \
             -out tfplan
       - name: Upload plan artifact
         uses: actions/upload-artifact@v7
@@ -120,6 +121,7 @@ jobs:
             -var "lambda_s3_bucket=${{ secrets.ARTIFACTS_BUCKET }}" \
             -var "lambda_s3_key=${{ env.PROD_KEY }}" \
             -var 'env_vars={APP_ENV="production"}' \
+            -var "certificate_validated=true" \
             -out tfplan
       - name: Upload plan artifact
         uses: actions/upload-artifact@v7
