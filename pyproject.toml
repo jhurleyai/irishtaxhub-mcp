@@ -17,6 +17,24 @@ python-dotenv = ">=1.0.1"
 PyYAML = ">=6.0"
 Jinja2 = ">=3.1"
 jsonschema = ">=4.22"
+mangum = ">=0.19"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^9.0.2"
+black = "^26.0.0"
+isort = "^5.13.2"
+flake8 = "^7.1.1"
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [tool.poetry.scripts]
 irishtaxhub-mcp = "irishtaxhub_mcp.server:run"

@@ -4,16 +4,15 @@ from typing import Any, Dict, Optional
 
 from fastmcp import FastMCP
 
-from .settings import Settings
 from .client import IrishTaxHubClient
 from .openapi import (
     OpenAPILoader,
-    list_endpoints,
     get_request_body_schema,
-    validate_body,
+    list_endpoints,
     normalize_path,
+    validate_body,
 )
-
+from .settings import Settings
 
 mcp = FastMCP("irishtaxhub-mcp")
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import List, Optional
 
-from pydantic import BaseModel, Field, conint, confloat
+from pydantic import BaseModel, Field, confloat, conint
 
 
 class MaritalStatus(str, Enum):
@@ -124,4 +124,3 @@ class TaxFreeEarningsRequest(BaseModel):
     gross_annual_salary: float = Field(ge=1)
     year: int = Field(ge=2024, le=2034)
     income_type: Optional[IncomeType] = None
-

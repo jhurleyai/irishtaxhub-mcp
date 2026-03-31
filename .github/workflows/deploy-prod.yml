@@ -1,0 +1,76 @@
+name: Deploy MCP (prod)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  APP_NAME: irishtaxhub-mcp
+  REGION: eu-west-1
+
+jobs:
+  prod:
+    name: Deploy prod
+    runs-on: ubuntu-latest
+    environment: prod
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.REGION }}
+          audience: sts.amazonaws.com
+          role-session-name: irishtaxhub-mcp-prod-deploy
+
+      - name: Generate unique S3 key
+        id: s3key
+        run: |
+          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+          COMMIT_SHA=${{ github.sha }}
+          S3_KEY="irishtaxhub-mcp/prod/irishtaxhub-mcp-${TIMESTAMP}-${COMMIT_SHA:0:8}.zip"
+          echo "s3_key=${S3_KEY}" >> $GITHUB_OUTPUT
+
+      - name: Package Lambda
+        run: bash scripts/package_lambda.sh
+
+      - name: Upload artifact to S3
+        run: |
+          aws s3 cp dist/irishtaxhub-mcp.zip s3://${{ secrets.ARTIFACTS_BUCKET }}/${{ steps.s3key.outputs.s3_key }}
+          aws s3 cp dist/irishtaxhub-mcp.zip s3://${{ secrets.ARTIFACTS_BUCKET }}/irishtaxhub-mcp/prod/irishtaxhub-mcp.zip
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: 1.7.5
+
+      - name: Terraform Init
+        working-directory: terraform/envs/prod
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
+            -backend-config="key=state/irishtaxhub-mcp/prod.tfstate" \
+            -backend-config="region=${{ env.REGION }}" \
+            -backend-config="dynamodb_table=${{ secrets.TF_STATE_DYNAMODB_TABLE }}" \
+            -backend-config="encrypt=true"
+
+      - name: Terraform Apply (prod)
+        working-directory: terraform/envs/prod
+        run: |
+          terraform apply -auto-approve \
+            -var "region=${{ env.REGION }}" \
+            -var "lambda_s3_bucket=${{ secrets.ARTIFACTS_BUCKET }}" \
+            -var "lambda_s3_key=${{ steps.s3key.outputs.s3_key }}" \
+            -var 'env_vars={APP_ENV="production",LOG_LEVEL="INFO"}'
