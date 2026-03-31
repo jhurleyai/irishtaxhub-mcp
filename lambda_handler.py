@@ -16,12 +16,7 @@ else:
 
 logger = logging.getLogger(__name__)
 
-# FastMCP http_app() returns a Starlette ASGI app
-_asgi_app = mcp.http_app()
-
-# Wrap with Mangum for Lambda + API Gateway
 _api_stage = os.getenv("API_GATEWAY_STAGE", "stage")
-_mangum_handler = Mangum(_asgi_app, api_gateway_base_path=f"/{_api_stage}")
 
 
 def handler(event, context):
@@ -30,4 +25,8 @@ def handler(event, context):
         "Lambda invocation - Request ID: %s",
         getattr(context, "aws_request_id", "unknown"),
     )
-    return _mangum_handler(event, context)
+    # Create a fresh ASGI app per invocation because FastMCP's
+    # StreamableHTTPSessionManager only supports a single lifespan cycle.
+    asgi_app = mcp.http_app()
+    mangum_handler = Mangum(asgi_app, api_gateway_base_path=f"/{_api_stage}")
+    return mangum_handler(event, context)
