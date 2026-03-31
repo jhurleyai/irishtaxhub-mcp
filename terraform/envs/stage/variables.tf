@@ -83,10 +83,10 @@ variable "streaming_certificate_validated" {
 variable "stage_domain" {
   description = "Stage environment domain name"
   type        = string
-  default     = "mcp-stage.aws.irishtaxhub.ie"
+  default     = ""
 
   validation {
-    condition     = can(regex("^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\\.)+[a-zA-Z]{2,}$", var.stage_domain))
-    error_message = "Stage domain must be a valid FQDN format."
+    condition     = var.stage_domain == "" || can(regex("^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\\.)+[a-zA-Z]{2,}$", var.stage_domain))
+    error_message = "Stage domain must be empty or a valid FQDN format."
   }
 }
