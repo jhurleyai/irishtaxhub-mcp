@@ -25,6 +25,12 @@ variable "api_stage_id" {
   type        = string
 }
 
+variable "certificate_validated" {
+  description = "Set to true after ACM certificate DNS validation is complete. Controls API Gateway domain creation."
+  type        = bool
+  default     = false
+}
+
 variable "tags" {
   description = "Common tags to apply to resources"
   type        = map(string)

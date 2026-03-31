@@ -35,8 +35,9 @@ module "api_lambda" {
     Environment = "prod"
   }
 
-  create_domain = true
-  domain_name   = var.prod_domain
+  create_domain         = true
+  domain_name           = var.prod_domain
+  certificate_validated = var.certificate_validated
 }
 
 output "prod_api_url" {
