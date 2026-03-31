@@ -73,4 +73,5 @@ jobs:
             -var "region=${{ env.REGION }}" \
             -var "lambda_s3_bucket=${{ secrets.ARTIFACTS_BUCKET }}" \
             -var "lambda_s3_key=${{ steps.s3key.outputs.s3_key }}" \
-            -var 'env_vars={APP_ENV="production",LOG_LEVEL="INFO"}'
+            -var 'env_vars={APP_ENV="production",LOG_LEVEL="INFO"}' \
+            -var "certificate_validated=true"
