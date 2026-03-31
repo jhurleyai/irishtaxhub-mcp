@@ -15,3 +15,8 @@ env_vars = {
 }
 
 prod_domain = "mcp-prod.aws.irishtaxhub.ie"
+
+# Streaming / MCP support (Lambda Web Adapter for SSE)
+lambda_web_adapter_layer_arn = "arn:aws:lambda:eu-west-1:753240598075:layer:LambdaAdapterLayerX86:25"
+create_streaming_domain      = false
+streaming_domain_name        = ""

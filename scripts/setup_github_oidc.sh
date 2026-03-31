@@ -31,6 +31,7 @@ OIDC_PROVIDER_ARN=""
 ARTIFACTS_BUCKET="${ARTIFACTS_BUCKET:-artifacts-${PROJECT_NAME}}"
 TF_STATE_BUCKET="${TF_STATE_BUCKET:-tf-state-${PROJECT_NAME}}"
 TF_STATE_DYNAMODB_TABLE="${TF_STATE_DYNAMODB_TABLE:-tf-locks-${PROJECT_NAME}}"
+LWA_LAYER_ARN="${LWA_LAYER_ARN:-}"
 
 check_aws_cli() {
     if ! command -v aws &> /dev/null; then
@@ -176,10 +177,42 @@ create_permissions_policy() {
             "Effect": "Allow",
             "Action": ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:DeleteItem"],
             "Resource": ["arn:aws:dynamodb:${AWS_REGION}:${account_id}:table/${TF_STATE_DYNAMODB_TABLE}"]
+        },
+        {
+            "Sid": "CloudFrontManagement",
+            "Effect": "Allow",
+            "Action": [
+                "cloudfront:CreateDistribution",
+                "cloudfront:GetDistribution",
+                "cloudfront:GetDistributionConfig",
+                "cloudfront:UpdateDistribution",
+                "cloudfront:DeleteDistribution",
+                "cloudfront:TagResource",
+                "cloudfront:UntagResource",
+                "cloudfront:ListTagsForResource"
+            ],
+            "Resource": "*"
         }
     ]
 }
 EOF
+
+    # Add Lambda Web Adapter layer permission if ARN is provided
+    if [ -n "$LWA_LAYER_ARN" ]; then
+        if command -v jq &> /dev/null; then
+            tmpfile=$(mktemp)
+            jq --arg arn "$LWA_LAYER_ARN" '.Statement += [{
+              "Sid": "LambdaWebAdapterLayerRead",
+              "Effect": "Allow",
+              "Action": ["lambda:GetLayerVersion"],
+              "Resource": [$arn]
+            }]' /tmp/permissions-policy.json > "$tmpfile" && mv "$tmpfile" /tmp/permissions-policy.json
+            log_info "Included Lambda Web Adapter layer permission for $LWA_LAYER_ARN"
+        else
+            log_warning "jq not found; cannot inject Lambda Web Adapter layer permission automatically."
+        fi
+    fi
+
     log_info "Generated permissions policy"
 }
 

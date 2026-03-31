@@ -38,6 +38,11 @@ module "api_lambda" {
   create_domain         = true
   domain_name           = var.stage_domain
   certificate_validated = var.certificate_validated
+
+  # Streaming / MCP support
+  lambda_web_adapter_layer_arn = var.lambda_web_adapter_layer_arn
+  create_streaming_domain      = var.create_streaming_domain
+  streaming_domain_name        = var.streaming_domain_name
 }
 
 output "stage_api_url" {
@@ -50,4 +55,19 @@ output "stage_custom_domain" {
 
 output "stage_dns_setup" {
   value = module.api_lambda.dns_setup_instructions
+}
+
+output "stage_mcp_function_url" {
+  value       = module.api_lambda.lambda_function_url
+  description = "Lambda Function URL for MCP (use this directly or via custom domain)"
+}
+
+output "stage_streaming_custom_domain" {
+  value       = module.api_lambda.streaming_custom_domain_url
+  description = "Custom domain URL for MCP streaming"
+}
+
+output "stage_streaming_dns_instructions" {
+  value       = module.api_lambda.streaming_dns_instructions
+  description = "DNS instructions for streaming domain"
 }

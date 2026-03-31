@@ -56,6 +56,24 @@ variable "certificate_validated" {
   default     = false
 }
 
+variable "lambda_web_adapter_layer_arn" {
+  description = "Lambda Web Adapter layer ARN for streaming support"
+  type        = string
+  default     = ""
+}
+
+variable "create_streaming_domain" {
+  description = "Whether to create CloudFront for streaming endpoint"
+  type        = bool
+  default     = false
+}
+
+variable "streaming_domain_name" {
+  description = "Custom domain for MCP streaming endpoint"
+  type        = string
+  default     = ""
+}
+
 variable "prod_domain" {
   description = "Production environment domain name"
   type        = string

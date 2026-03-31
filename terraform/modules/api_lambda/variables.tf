@@ -112,3 +112,21 @@ variable "api_stage_name" {
     error_message = "API stage name must contain only alphanumeric characters, hyphens, and underscores."
   }
 }
+
+variable "lambda_web_adapter_layer_arn" {
+  description = "ARN of the AWS Lambda Web Adapter layer for streaming support"
+  type        = string
+  default     = ""
+}
+
+variable "create_streaming_domain" {
+  description = "Whether to create CloudFront distribution for streaming endpoint"
+  type        = bool
+  default     = false
+}
+
+variable "streaming_domain_name" {
+  description = "Custom domain name for streaming/MCP endpoint"
+  type        = string
+  default     = ""
+}
