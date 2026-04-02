@@ -165,10 +165,21 @@ capital-gains: {{"sale_price": 400000, \
 mortgage: {{"home_price": 400000, "deposit": 40000, \
 "loan_term_years": 30, "interest_rate": 4.0}}
 
-work-from-home-expense: {{"working_days": 200, \
-"year": 2025}}
+work-from-home-expense: {{"electricity_costs": 1200, \
+"heating_costs": 800, "internet_costs": 600, \
+"tax_year": 2025, "total_earnings": 75000, \
+"days_working_from_home": 200}}
 
-avc: {{"age": 45, "gross_earnings": 100000, "year": 2025}}"""
+avc: {{"age": 45, "gross_earnings": 100000, "year": 2025}}
+
+share-options: {{"share_option_price": 10, \
+"sale_price": 50, "number_of_units": 1000}}
+
+redundancy-tax: {{"employment_start_date": "2010-01-01", \
+"employment_end_date": "2025-06-01", "gross_weekly_pay": 1500}}
+
+mortgage-affordability: {{"buyer_type": "first_time_buyer", \
+"gross_annual_income_1": 75000, "savings": 50000}}"""
 
 
 async def _get_client_and_loader() -> tuple[IrishTaxHubClient, OpenAPILoader, Settings]:
@@ -344,7 +355,8 @@ async def get_revenue_document_text(
             description=(
                 "Document filename as returned by"
                 " `search_revenue_documents`"
-                " (e.g. 'part-04-06-02.pdf')."
+                " (e.g. 'part-04-06-02')."
+                " Do NOT include the .pdf extension."
             )
         ),
     ],
@@ -423,6 +435,31 @@ async def generate_net_income_summary(
         await client.close()
 
 
+# Mapping from MCP calculator names to the frontend slugs used by the stats API
+_STATS_SLUG_MAP: Dict[str, str] = {
+    "base": "salary-after-tax",
+    "refund": "refund",
+    "tax-free-earnings": "arriving-ireland-tax-savings",
+    "refund-for-move-date": "arriving-ireland-tax-savings",
+    "net-to-gross": "net-to-gross",
+    "rental-income": "rental-income",
+    "self-employed": "self-employed-income",
+    "capital-gains": "capital-gains-tax",
+    "share-options": "employee-share-options",
+    "share-options-cgt": "share-sale-cgt",
+    "work-from-home-expense": "work-from-home",
+    "avc": "additional-voluntary-contribution",
+    "pension-value": "pension-value",
+    "future-fund": "auto-enrolment",
+    "mortgage": "mortgage-payments",
+    "redundancy-tax": "redundancy-tax",
+    "mortgage-affordability": "mortgage-affordability",
+    "cat": "cat",
+    "sarp": "sarp",
+    "vat3": "vat3",
+}
+
+
 @mcp.tool
 async def get_calculator_stats(
     calculator_name: Annotated[
@@ -437,9 +474,10 @@ async def get_calculator_stats(
             f"Unknown calculator: '{calculator_name}'. Available calculators: {available}"
         )
 
+    stats_slug = _STATS_SLUG_MAP.get(calculator_name, calculator_name)
     client, loader, settings = await _get_client_and_loader()
     try:
-        return await client.request("GET", f"/v1/tax/calculators/{calculator_name}/stats")
+        return await client.request("GET", f"/v1/tax/calculators/{stats_slug}/stats")
     finally:
         await client.close()
 
