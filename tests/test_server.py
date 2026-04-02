@@ -1,13 +1,34 @@
 from irishtaxhub_mcp.server import mcp
 
+EXPECTED_TOOLS = [
+    "calculate_tax",
+    "get_calculator_schema",
+    "list_calculators",
+    "get_tax_constants",
+    "get_key_dates",
+    "search_revenue_documents",
+    "get_revenue_document_text",
+    "list_revenue_document_categories",
+    "get_revenue_ebrief_changelog",
+    "generate_net_income_summary",
+    "get_calculator_stats",
+]
+
 
 def test_mcp_server_has_registered_tools():
     """Verify the MCP server registers the expected tool functions."""
     assert mcp._tool_manager._tools, "No tools registered"
     tool_names = list(mcp._tool_manager._tools.keys())
-    assert "openapi_list_endpoints" in tool_names
-    assert "openapi_get_request_schema" in tool_names
-    assert "openapi_invoke" in tool_names
+    for expected in EXPECTED_TOOLS:
+        assert expected in tool_names, f"Missing tool: {expected}"
+
+
+def test_mcp_server_tool_count():
+    """Verify no unexpected tools are registered."""
+    tool_names = list(mcp._tool_manager._tools.keys())
+    assert len(tool_names) == len(
+        EXPECTED_TOOLS
+    ), f"Expected {len(EXPECTED_TOOLS)} tools, got {len(tool_names)}: {tool_names}"
 
 
 def test_mcp_http_app():
