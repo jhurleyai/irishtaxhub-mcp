@@ -2,6 +2,14 @@
 
 Practical prompts you can use with any AI agent connected to the Irish Tax Hub MCP server. The agent figures out which tool to call based on your question — you just ask naturally.
 
+## Discovery
+
+### Available Calculators (`list_calculators`)
+
+- "What calculators are available?"
+- "List all the tax calculators I can use"
+- "Show me what types of tax calculations you can do"
+
 ## Tax Calculations
 
 These trigger `calculate_tax` (and `get_calculator_schema` if the agent needs to look up the input fields first).
