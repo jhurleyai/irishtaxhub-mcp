@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from enum import Enum
 from typing import Annotated, Any, Dict, List, Literal, Optional
 
 from fastmcp import FastMCP
@@ -16,7 +15,10 @@ mcp = FastMCP("irishtaxhub-mcp")
 CALCULATORS: Dict[str, Dict[str, str]] = {
     "base": {
         "path": "/v1/tax/calculators/base",
-        "summary": "Calculate income tax, USC, and PRSI for a given salary. Supports single/married, multiple employments, tax credits.",
+        "summary": (
+            "Calculate income tax, USC, and PRSI for a given salary."
+            " Supports single/married, multiple employments, tax credits."
+        ),
     },
     "refund": {
         "path": "/v1/tax/calculators/refund",
@@ -24,7 +26,10 @@ CALCULATORS: Dict[str, Dict[str, str]] = {
     },
     "tax-free-earnings": {
         "path": "/v1/tax/calculators/tax-free-earnings",
-        "summary": "Calculate tax-free earnings date for someone arriving in or departing Ireland mid-year.",
+        "summary": (
+            "Calculate tax-free earnings date for someone"
+            " arriving in or departing Ireland mid-year."
+        ),
     },
     "refund-for-move-date": {
         "path": "/v1/tax/calculators/refund-for-move-date",
@@ -36,11 +41,15 @@ CALCULATORS: Dict[str, Dict[str, str]] = {
     },
     "rental-income": {
         "path": "/v1/tax/calculators/rental-income",
-        "summary": "Calculate tax on rental income including allowable expenses and mortgage interest.",
+        "summary": (
+            "Calculate tax on rental income including" " allowable expenses and mortgage interest."
+        ),
     },
     "self-employed": {
         "path": "/v1/tax/calculators/self-employed",
-        "summary": "Calculate tax for self-employed individuals including PRSI Class S and expenses.",
+        "summary": (
+            "Calculate tax for self-employed individuals" " including PRSI Class S and expenses."
+        ),
     },
     "capital-gains": {
         "path": "/v1/tax/calculators/capital-gains",
@@ -88,7 +97,10 @@ CALCULATORS: Dict[str, Dict[str, str]] = {
     },
     "sarp": {
         "path": "/v1/tax/calculators/sarp",
-        "summary": "Calculate SARP (Special Assignee Relief Programme) tax relief for foreign assignees.",
+        "summary": (
+            "Calculate SARP (Special Assignee Relief Programme)"
+            " tax relief for foreign assignees."
+        ),
     },
     "vat3": {
         "path": "/v1/tax/calculators/vat3",
@@ -129,7 +141,9 @@ _CALCULATE_TAX_DESC = f"""Run an Irish tax calculator and return the full result
 Available calculators:
 {_CALC_LIST}
 
-Pass the calculator name and its required inputs. Use `get_calculator_schema` first if you need to know the exact input fields for a calculator."""
+Pass the calculator name and its required inputs. Use \
+`get_calculator_schema` first if you need to know the exact \
+input fields for a calculator."""
 
 
 async def _get_client_and_loader() -> tuple[IrishTaxHubClient, OpenAPILoader, Settings]:
@@ -148,7 +162,11 @@ async def calculate_tax(
     inputs: Annotated[
         Dict[str, Any],
         Field(
-            description="Calculator input parameters. Use `get_calculator_schema` to discover the required fields for a specific calculator."
+            description=(
+                "Calculator input parameters. Use"
+                " `get_calculator_schema` to discover the"
+                " required fields for a specific calculator."
+            )
         ),
     ],
 ) -> Any:
@@ -174,9 +192,11 @@ async def get_calculator_schema(
         CalculatorName, Field(description="The calculator to get the schema for.")
     ],
 ) -> Any:
-    """Get the JSON Schema (input fields, types, defaults, constraints) for a specific tax calculator.
+    """Get the JSON Schema for a specific tax calculator.
 
-    Use this before calling `calculate_tax` if you need to know what fields are required.
+    Returns input fields, types, defaults, and constraints.
+    Use before calling `calculate_tax` if you need to know
+    what fields are required.
     """
     calc = CALCULATORS.get(calculator_name)
     if not calc:
@@ -208,9 +228,11 @@ async def get_tax_constants(
         Field(description="Tax year (e.g. 2025). Defaults to current year.", ge=2024, le=2034),
     ] = None,
 ) -> Any:
-    """Get Irish tax constants — tax bands, rates, USC rates, PRSI rates, tax credits, and thresholds.
+    """Get Irish tax constants.
 
-    Useful for understanding the current tax rules without running a full calculation.
+    Returns tax bands, rates, USC rates, PRSI rates,
+    tax credits, and thresholds. Useful for understanding
+    the current tax rules without running a full calculation.
     """
     client, loader, settings = await _get_client_and_loader()
     try:
@@ -234,7 +256,11 @@ async def get_key_dates(
     tax_type: Annotated[
         Optional[str],
         Field(
-            description="Filter by tax type (e.g. 'VAT', 'PAYE', 'Income Tax', 'CGT', 'Corporation Tax')."
+            description=(
+                "Filter by tax type"
+                " (e.g. 'VAT', 'PAYE', 'Income Tax',"
+                " 'CGT', 'Corporation Tax')."
+            )
         ),
     ] = None,
 ) -> Any:
@@ -256,7 +282,10 @@ async def get_key_dates(
 @mcp.tool
 async def search_revenue_documents(
     query: Annotated[
-        str, Field(description="Search terms (e.g. 'rental income', 'CGT relief', 'PAYE credits').")
+        str,
+        Field(
+            description=("Search terms (e.g. 'rental income'," " 'CGT relief', 'PAYE credits').")
+        ),
     ],
     category: Annotated[
         Optional[str],
@@ -268,7 +297,8 @@ async def search_revenue_documents(
 ) -> Any:
     """Search Irish Revenue Tax & Duty Manual (TDM) documents.
 
-    Find official Revenue guidance documents by keyword. Returns document titles, categories, and filenames.
+    Find official Revenue guidance documents by keyword.
+    Returns document titles, categories, and filenames.
     Use `get_revenue_document_text` to read the full text of a specific document.
     """
     client, loader, settings = await _get_client_and_loader()
@@ -286,7 +316,11 @@ async def get_revenue_document_text(
     filename: Annotated[
         str,
         Field(
-            description="Document filename as returned by `search_revenue_documents` (e.g. 'part-04-06-02.pdf')."
+            description=(
+                "Document filename as returned by"
+                " `search_revenue_documents`"
+                " (e.g. 'part-04-06-02.pdf')."
+            )
         ),
     ],
 ) -> Any:
