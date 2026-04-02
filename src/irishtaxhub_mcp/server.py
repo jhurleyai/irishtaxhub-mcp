@@ -328,7 +328,7 @@ async def search_revenue_documents(
     """
     client, loader, settings = await _get_client_and_loader()
     try:
-        params: Dict[str, Any] = {"query": query, "limit": limit}
+        params: Dict[str, Any] = {"q": query, "limit": limit}
         if category:
             params["category"] = category
         return await client.request("GET", "/v1/revenue/documents", params=params)
