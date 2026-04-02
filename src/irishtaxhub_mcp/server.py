@@ -7,11 +7,7 @@ from fastmcp import FastMCP
 from pydantic import Field
 
 from .client import IrishTaxHubClient
-from .openapi import (
-    OpenAPILoader,
-    get_request_body_schema,
-    validate_body,
-)
+from .openapi import OpenAPILoader, get_request_body_schema, validate_body
 from .settings import Settings
 
 mcp = FastMCP("irishtaxhub-mcp")
