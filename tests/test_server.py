@@ -26,9 +26,9 @@ def test_mcp_server_has_registered_tools():
 def test_mcp_server_tool_count():
     """Verify no unexpected tools are registered."""
     tool_names = list(mcp._tool_manager._tools.keys())
-    assert len(tool_names) == len(EXPECTED_TOOLS), (
-        f"Expected {len(EXPECTED_TOOLS)} tools, got {len(tool_names)}: {tool_names}"
-    )
+    assert len(tool_names) == len(
+        EXPECTED_TOOLS
+    ), f"Expected {len(EXPECTED_TOOLS)} tools, got {len(tool_names)}: {tool_names}"
 
 
 def test_mcp_http_app():

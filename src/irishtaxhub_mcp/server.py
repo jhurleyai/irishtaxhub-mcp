@@ -103,17 +103,30 @@ CALCULATORS: Dict[str, Dict[str, str]] = {
 
 # Build the Literal type and enum from CALCULATORS keys
 CalculatorName = Literal[
-    "base", "refund", "tax-free-earnings", "refund-for-move-date",
-    "net-to-gross", "rental-income", "self-employed", "capital-gains",
-    "share-options", "share-options-cgt", "work-from-home-expense",
-    "avc", "pension-value", "future-fund", "mortgage", "redundancy-tax",
-    "mortgage-affordability", "cat", "sarp", "vat3",
+    "base",
+    "refund",
+    "tax-free-earnings",
+    "refund-for-move-date",
+    "net-to-gross",
+    "rental-income",
+    "self-employed",
+    "capital-gains",
+    "share-options",
+    "share-options-cgt",
+    "work-from-home-expense",
+    "avc",
+    "pension-value",
+    "future-fund",
+    "mortgage",
+    "redundancy-tax",
+    "mortgage-affordability",
+    "cat",
+    "sarp",
+    "vat3",
 ]
 
 # Build a static description string for the calculate_tax tool
-_CALC_LIST = "\n".join(
-    f"  - {name}: {info['summary']}" for name, info in CALCULATORS.items()
-)
+_CALC_LIST = "\n".join(f"  - {name}: {info['summary']}" for name, info in CALCULATORS.items())
 
 _CALCULATE_TAX_DESC = f"""Run an Irish tax calculator and return the full result.
 
@@ -132,8 +145,16 @@ async def _get_client_and_loader() -> tuple[IrishTaxHubClient, OpenAPILoader, Se
 
 @mcp.tool(description=_CALCULATE_TAX_DESC)
 async def calculate_tax(
-    calculator_name: Annotated[CalculatorName, Field(description="The calculator to run. See tool description for the full list.")],
-    inputs: Annotated[Dict[str, Any], Field(description="Calculator input parameters. Use `get_calculator_schema` to discover the required fields for a specific calculator.")],
+    calculator_name: Annotated[
+        CalculatorName,
+        Field(description="The calculator to run. See tool description for the full list."),
+    ],
+    inputs: Annotated[
+        Dict[str, Any],
+        Field(
+            description="Calculator input parameters. Use `get_calculator_schema` to discover the required fields for a specific calculator."
+        ),
+    ],
 ) -> Any:
     calc = CALCULATORS.get(calculator_name)
     if not calc:
@@ -153,11 +174,13 @@ async def calculate_tax(
 
 @mcp.tool
 async def get_calculator_schema(
-    calculator_name: Annotated[CalculatorName, Field(description="The calculator to get the schema for.")],
+    calculator_name: Annotated[
+        CalculatorName, Field(description="The calculator to get the schema for.")
+    ],
 ) -> Any:
     """Get the JSON Schema (input fields, types, defaults, constraints) for a specific tax calculator.
 
-Use this before calling `calculate_tax` if you need to know what fields are required.
+    Use this before calling `calculate_tax` if you need to know what fields are required.
     """
     calc = CALCULATORS.get(calculator_name)
     if not calc:
@@ -177,21 +200,21 @@ Use this before calling `calculate_tax` if you need to know what fields are requ
 async def list_calculators() -> List[Dict[str, str]]:
     """List all available Irish tax calculators with their names and descriptions.
 
-Returns a list of calculators that can be used with the `calculate_tax` tool.
+    Returns a list of calculators that can be used with the `calculate_tax` tool.
     """
-    return [
-        {"name": name, "description": info["summary"]}
-        for name, info in CALCULATORS.items()
-    ]
+    return [{"name": name, "description": info["summary"]} for name, info in CALCULATORS.items()]
 
 
 @mcp.tool
 async def get_tax_constants(
-    year: Annotated[Optional[int], Field(description="Tax year (e.g. 2025). Defaults to current year.", ge=2024, le=2034)] = None,
+    year: Annotated[
+        Optional[int],
+        Field(description="Tax year (e.g. 2025). Defaults to current year.", ge=2024, le=2034),
+    ] = None,
 ) -> Any:
     """Get Irish tax constants — tax bands, rates, USC rates, PRSI rates, tax credits, and thresholds.
 
-Useful for understanding the current tax rules without running a full calculation.
+    Useful for understanding the current tax rules without running a full calculation.
     """
     client, loader, settings = await _get_client_and_loader()
     try:
@@ -205,9 +228,19 @@ Useful for understanding the current tax rules without running a full calculatio
 
 @mcp.tool
 async def get_key_dates(
-    year: Annotated[Optional[int], Field(description="Tax year (e.g. 2026). Defaults to current year.", ge=2024, le=2034)] = None,
-    month: Annotated[Optional[str], Field(description="Filter by month name (e.g. 'January', 'October').")] = None,
-    tax_type: Annotated[Optional[str], Field(description="Filter by tax type (e.g. 'VAT', 'PAYE', 'Income Tax', 'CGT', 'Corporation Tax').")] = None,
+    year: Annotated[
+        Optional[int],
+        Field(description="Tax year (e.g. 2026). Defaults to current year.", ge=2024, le=2034),
+    ] = None,
+    month: Annotated[
+        Optional[str], Field(description="Filter by month name (e.g. 'January', 'October').")
+    ] = None,
+    tax_type: Annotated[
+        Optional[str],
+        Field(
+            description="Filter by tax type (e.g. 'VAT', 'PAYE', 'Income Tax', 'CGT', 'Corporation Tax')."
+        ),
+    ] = None,
 ) -> Any:
     """Get important Irish Revenue dates and deadlines (filing dates, payment dates, etc.)."""
     client, loader, settings = await _get_client_and_loader()
@@ -226,14 +259,21 @@ async def get_key_dates(
 
 @mcp.tool
 async def search_revenue_documents(
-    query: Annotated[str, Field(description="Search terms (e.g. 'rental income', 'CGT relief', 'PAYE credits').")],
-    category: Annotated[Optional[str], Field(description="Category filter. Use `list_revenue_document_categories` to see options.")] = None,
+    query: Annotated[
+        str, Field(description="Search terms (e.g. 'rental income', 'CGT relief', 'PAYE credits').")
+    ],
+    category: Annotated[
+        Optional[str],
+        Field(
+            description="Category filter. Use `list_revenue_document_categories` to see options."
+        ),
+    ] = None,
     limit: Annotated[int, Field(description="Maximum results to return.", ge=1, le=50)] = 10,
 ) -> Any:
     """Search Irish Revenue Tax & Duty Manual (TDM) documents.
 
-Find official Revenue guidance documents by keyword. Returns document titles, categories, and filenames.
-Use `get_revenue_document_text` to read the full text of a specific document.
+    Find official Revenue guidance documents by keyword. Returns document titles, categories, and filenames.
+    Use `get_revenue_document_text` to read the full text of a specific document.
     """
     client, loader, settings = await _get_client_and_loader()
     try:
@@ -247,11 +287,16 @@ Use `get_revenue_document_text` to read the full text of a specific document.
 
 @mcp.tool
 async def get_revenue_document_text(
-    filename: Annotated[str, Field(description="Document filename as returned by `search_revenue_documents` (e.g. 'part-04-06-02.pdf').")],
+    filename: Annotated[
+        str,
+        Field(
+            description="Document filename as returned by `search_revenue_documents` (e.g. 'part-04-06-02.pdf')."
+        ),
+    ],
 ) -> Any:
     """Get the full text of a specific Revenue Tax & Duty Manual document.
 
-Use `search_revenue_documents` first to find the filename.
+    Use `search_revenue_documents` first to find the filename.
     """
     client, loader, settings = await _get_client_and_loader()
     try:
@@ -264,7 +309,7 @@ Use `search_revenue_documents` first to find the filename.
 async def list_revenue_document_categories() -> Any:
     """List all available categories for Revenue Tax & Duty Manual documents.
 
-Use with `search_revenue_documents` to filter results by category.
+    Use with `search_revenue_documents` to filter results by category.
     """
     client, loader, settings = await _get_client_and_loader()
     try:
@@ -277,7 +322,7 @@ Use with `search_revenue_documents` to filter results by category.
 async def get_revenue_ebrief_changelog() -> Any:
     """Get the Revenue eBrief changelog — recent updates to Revenue guidance and Tax & Duty Manuals.
 
-Useful for checking what Revenue guidance has changed recently.
+    Useful for checking what Revenue guidance has changed recently.
     """
     client, loader, settings = await _get_client_and_loader()
     try:
@@ -288,18 +333,25 @@ Useful for checking what Revenue guidance has changed recently.
 
 @mcp.tool
 async def generate_net_income_summary(
-    status: Annotated[str, Field(description="The 'status' field from the base tax calculation response.")],
-    message: Annotated[str, Field(description="The 'message' field from the base tax calculation response.")],
+    status: Annotated[
+        str, Field(description="The 'status' field from the base tax calculation response.")
+    ],
+    message: Annotated[
+        str, Field(description="The 'message' field from the base tax calculation response.")
+    ],
     year: Annotated[int, Field(description="Tax year (e.g. 2025).", ge=2024, le=2034)],
-    breakdown: Annotated[Dict[str, Any], Field(description="The full 'breakdown' object from the base tax calculation response.")],
+    breakdown: Annotated[
+        Dict[str, Any],
+        Field(description="The full 'breakdown' object from the base tax calculation response."),
+    ],
 ) -> Any:
     """Generate an AI-powered plain-English summary of a tax calculation.
 
-This takes the OUTPUT from a `calculate_tax` call (with calculator_name="base") and returns
-a human-readable explanation of the tax breakdown, effective rates, and key insights.
+    This takes the OUTPUT from a `calculate_tax` call (with calculator_name="base") and returns
+    a human-readable explanation of the tax breakdown, effective rates, and key insights.
 
-Workflow: first call `calculate_tax(calculator_name="base", inputs={...})`, then pass the
-response fields (status, message, year, breakdown) to this tool.
+    Workflow: first call `calculate_tax(calculator_name="base", inputs={...})`, then pass the
+    response fields (status, message, year, breakdown) to this tool.
     """
     client, loader, settings = await _get_client_and_loader()
     try:
@@ -309,14 +361,18 @@ response fields (status, message, year, breakdown) to this tool.
             "year": year,
             "breakdown": breakdown,
         }
-        return await client.request("POST", "/v1/tax/calculators/net-income-summary", json_body=body)
+        return await client.request(
+            "POST", "/v1/tax/calculators/net-income-summary", json_body=body
+        )
     finally:
         await client.close()
 
 
 @mcp.tool
 async def get_calculator_stats(
-    calculator_name: Annotated[CalculatorName, Field(description="The calculator to get stats for.")],
+    calculator_name: Annotated[
+        CalculatorName, Field(description="The calculator to get stats for.")
+    ],
 ) -> Any:
     """Get usage statistics for a specific tax calculator."""
     calc = CALCULATORS.get(calculator_name)
