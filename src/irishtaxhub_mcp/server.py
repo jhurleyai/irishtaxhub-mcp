@@ -141,9 +141,34 @@ _CALCULATE_TAX_DESC = f"""Run an Irish tax calculator and return the full result
 Available calculators:
 {_CALC_LIST}
 
-Pass the calculator name and its required inputs. Use \
-`get_calculator_schema` first if you need to know the exact \
-input fields for a calculator."""
+Pass the calculator name and its required inputs. \
+Use `get_calculator_schema` first if you need to know \
+the exact input fields for a calculator.
+
+Common examples:
+
+base (income tax): {{"marital_status": "single", \
+"employment_income": {{"income": 75000, "period": "annual"}}, \
+"year": 2025}}
+
+marital_status options: single, widow, \
+married_one_income, married_two_income
+
+refund: {{"marital_status": "single", \
+"employment_income": {{"income": 50000, "tax_paid": 18000}}, \
+"year": 2025}}
+
+capital-gains: {{"sale_price": 400000, \
+"purchase_price": 250000, "purchase_date": "2018-03-15", \
+"sale_date": "2025-06-01", "year": 2025}}
+
+mortgage: {{"home_price": 400000, "deposit": 40000, \
+"loan_term_years": 30, "interest_rate": 4.0}}
+
+work-from-home-expense: {{"working_days": 200, \
+"year": 2025}}
+
+avc: {{"age": 45, "gross_earnings": 100000, "year": 2025}}"""
 
 
 async def _get_client_and_loader() -> tuple[IrishTaxHubClient, OpenAPILoader, Settings]:
