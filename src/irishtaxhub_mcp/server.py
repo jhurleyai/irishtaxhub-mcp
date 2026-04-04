@@ -364,10 +364,24 @@ async def get_revenue_document_text(
     """Get the full text of a specific Revenue Tax & Duty Manual document.
 
     Use `search_revenue_documents` first to find the filename.
+    Not all documents have extracted text available.
     """
+    import httpx
+
     client, loader, settings = await _get_client_and_loader()
     try:
         return await client.request("GET", f"/v1/revenue/documents/text/{filename}")
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 404:
+            return {
+                "status": "error",
+                "message": (
+                    f"Full text not available for '{filename}'. "
+                    "Use the search result metadata (title, description, "
+                    "keywords, url) instead."
+                ),
+            }
+        raise
     finally:
         await client.close()
 
