@@ -22,7 +22,7 @@ mangum = ">=0.19"
 [tool.poetry.group.dev.dependencies]
 pytest = "^9.0.2"
 black = "^26.0.0"
-isort = "^5.13.2"
+isort = "^8.0.1"
 flake8 = "^7.1.1"
 
 [tool.black]
