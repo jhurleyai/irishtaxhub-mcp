@@ -1,3 +1,5 @@
+import asyncio
+
 from irishtaxhub_mcp.server import mcp
 
 EXPECTED_TOOLS = [
@@ -15,17 +17,21 @@ EXPECTED_TOOLS = [
 ]
 
 
+def _get_tool_names():
+    return [t.name for t in asyncio.run(mcp.list_tools())]
+
+
 def test_mcp_server_has_registered_tools():
     """Verify the MCP server registers the expected tool functions."""
-    assert mcp._tool_manager._tools, "No tools registered"
-    tool_names = list(mcp._tool_manager._tools.keys())
+    tool_names = _get_tool_names()
+    assert tool_names, "No tools registered"
     for expected in EXPECTED_TOOLS:
         assert expected in tool_names, f"Missing tool: {expected}"
 
 
 def test_mcp_server_tool_count():
     """Verify no unexpected tools are registered."""
-    tool_names = list(mcp._tool_manager._tools.keys())
+    tool_names = _get_tool_names()
     assert len(tool_names) == len(
         EXPECTED_TOOLS
     ), f"Expected {len(EXPECTED_TOOLS)} tools, got {len(tool_names)}: {tool_names}"
