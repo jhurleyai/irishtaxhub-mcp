@@ -46,6 +46,7 @@ jobs:
     name: Plan stage
     runs-on: ubuntu-latest
     needs: fmt_validate
+    if: github.actor != 'dependabot[bot]'
     environment: stage
     steps:
       - uses: actions/checkout@v6
@@ -96,6 +97,7 @@ jobs:
     name: Plan prod
     runs-on: ubuntu-latest
     needs: fmt_validate
+    if: github.actor != 'dependabot[bot]'
     environment: prod
     steps:
       - uses: actions/checkout@v6
