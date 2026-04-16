@@ -82,7 +82,7 @@ jobs:
             -var "region=${{ env.REGION }}" \
             -var "lambda_s3_bucket=${{ secrets.ARTIFACTS_BUCKET }}" \
             -var "lambda_s3_key=${{ steps.s3key.outputs.s3_key }}" \
-            -var 'env_vars={APP_ENV="development",LOG_LEVEL="DEBUG",ALGOLIA_SEARCH_ONLY_KEY="${{ secrets.ALGOLIA_SEARCH_ONLY_KEY }}"}' \
+            -var 'env_vars={APP_ENV="development",LOG_LEVEL="DEBUG"}' \
             -var "certificate_validated=true" \
             -var "lambda_web_adapter_layer_arn=arn:aws:lambda:eu-west-1:753240598075:layer:LambdaAdapterLayerX86:25" \
             -var "create_streaming_domain=true" \
