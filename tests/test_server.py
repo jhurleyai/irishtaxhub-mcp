@@ -1,6 +1,8 @@
 import asyncio
 
-from irishtaxhub_mcp.server import mcp
+import pytest
+
+from irishtaxhub_mcp.server import _normalise_document_identifier, mcp
 
 EXPECTED_TOOLS = [
     "calculate_tax",
@@ -41,3 +43,23 @@ def test_mcp_http_app():
     """Verify FastMCP produces an ASGI app for Lambda."""
     app = mcp.http_app()
     assert callable(app)
+
+
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        ("19-07-03", "19-07-03"),
+        ("19-07-03.pdf", "19-07-03"),
+        ("19-07-03.PDF", "19-07-03"),
+        (
+            "https://www.revenue.ie/en/tax-professionals/tdm/"
+            "income-tax-capital-gains-tax-corporation-tax/part-19/19-07-03.pdf",
+            "19-07-03",
+        ),
+        ("/revenue/documents/text/19-07-03", "19-07-03"),
+        ("  19-07-03  ", "19-07-03"),
+        ("19-07-03/", "19-07-03"),
+    ],
+)
+def test_normalise_document_identifier(value, expected):
+    assert _normalise_document_identifier(value) == expected
