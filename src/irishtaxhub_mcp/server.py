@@ -347,36 +347,54 @@ async def search_revenue_documents(
         await client.close()
 
 
+def _normalise_document_identifier(value: str) -> str:
+    """Extract a bare filename from a URL, path, or filename.
+
+    Accepts any of the following and returns the bare identifier (e.g. ``19-07-03``)
+    that the ``/v1/revenue/documents/text/{filename}`` endpoint expects:
+      - full PDF URL: ``https://.../part-19/19-07-03.pdf``
+      - ``textUrl`` from search results: ``/revenue/documents/text/19-07-03``
+      - bare filename: ``19-07-03`` or ``19-07-03.pdf``
+    """
+    identifier = value.strip().rstrip("/").split("/")[-1]
+    if identifier.lower().endswith(".pdf"):
+        identifier = identifier[:-4]
+    return identifier
+
+
 @mcp.tool
 async def get_revenue_document_text(
     filename: Annotated[
         str,
         Field(
             description=(
-                "Document filename as returned by"
-                " `search_revenue_documents`"
-                " (e.g. 'part-04-06-02')."
-                " Do NOT include the .pdf extension."
+                "Document identifier — accepts a bare filename"
+                " (e.g. '19-07-03'), a filename with .pdf,"
+                " the full Revenue PDF URL, or the 'textUrl'"
+                " value from a search result."
             )
         ),
     ],
 ) -> Any:
     """Get the full text of a specific Revenue Tax & Duty Manual document.
 
-    Use `search_revenue_documents` first to find the filename.
-    Not all documents have extracted text available.
+    Use `search_revenue_documents` first to find the document. You can pass
+    the ``url`` from the search result directly — URLs, paths, and bare
+    filenames are all accepted. Not all documents have extracted text available.
     """
     import httpx
 
+    identifier = _normalise_document_identifier(filename)
+
     client, loader, settings = await _get_client_and_loader()
     try:
-        return await client.request("GET", f"/v1/revenue/documents/text/{filename}")
+        return await client.request("GET", f"/v1/revenue/documents/text/{identifier}")
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 404:
             return {
                 "status": "error",
                 "message": (
-                    f"Full text not available for '{filename}'. "
+                    f"Full text not available for '{identifier}'. "
                     "Use the search result metadata (title, description, "
                     "keywords, url) instead."
                 ),
