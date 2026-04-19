@@ -315,61 +315,6 @@ async def get_key_dates(
         await client.close()
 
 
-def _search_algolia_revenue_documents(
-    query: str, category: Optional[str], limit: int
-) -> Optional[List[Dict[str, Any]]]:
-    """Search Revenue documents via Algolia full-text index.
-
-    Returns a list of result dicts, or None if Algolia is not configured.
-    """
-    import os
-
-    search_only_key = os.environ.get("ALGOLIA_SEARCH_ONLY_KEY")
-    if not search_only_key:
-        return None
-
-    from algoliasearch.search.client import SearchClientSync
-
-    client = SearchClientSync("B6A5JWIU4S", search_only_key)
-    try:
-        result = client.search_single_index(
-            index_name="revenue-documents",
-            search_params={
-                "query": query,
-                "filters": f'category:"{category}"' if category else "",
-                "hitsPerPage": limit,
-                "attributesToSnippet": ["content:40"],
-                "snippetEllipsisText": "…",
-                "distinct": True,
-            },
-        )
-    finally:
-        client.close()
-
-    hits: List[Dict[str, Any]] = []
-    for hit in result.hits:
-        snippet = ""
-        snippet_result = hit.get("_snippetResult", {})
-        if isinstance(snippet_result, dict):
-            content_snippet = snippet_result.get("content", {})
-            if isinstance(content_snippet, dict):
-                snippet = content_snippet.get("value", "")
-
-        hits.append(
-            {
-                "title": hit.get("title", ""),
-                "displayName": hit.get("displayName", ""),
-                "description": hit.get("description", ""),
-                "category": hit.get("category", ""),
-                "url": hit.get("docUrl", ""),
-                "keywords": hit.get("keywords", []),
-                "contentSnippet": snippet,
-            }
-        )
-
-    return hits
-
-
 @mcp.tool
 async def search_revenue_documents(
     query: Annotated[
@@ -386,18 +331,12 @@ async def search_revenue_documents(
     ] = None,
     limit: Annotated[int, Field(description="Maximum results to return.", ge=1, le=50)] = 10,
 ) -> Any:
-    """Search Irish Revenue Tax & Duty Manual (TDM) documents by full-text content.
+    """Search Irish Revenue Tax & Duty Manual (TDM) documents.
 
-    Find official Revenue guidance documents by keyword. Searches the full text
-    of 1,343 TDM documents, returning matching snippets showing where your query
-    was found. Use `get_revenue_document_text` to read the full text of a specific document.
+    Find official Revenue guidance documents by keyword.
+    Returns document titles, categories, and filenames.
+    Use `get_revenue_document_text` to read the full text of a specific document.
     """
-    # Try Algolia full-text search first
-    algolia_results = _search_algolia_revenue_documents(query, category, limit)
-    if algolia_results is not None:
-        return {"source": "algolia", "query": query, "results": algolia_results}
-
-    # Fall back to API title/keyword search if Algolia is not configured
     client, loader, settings = await _get_client_and_loader()
     try:
         params: Dict[str, Any] = {"q": query, "limit": limit}
