@@ -1,0 +1,50 @@
+name: Regenerate requirements.txt (dependabot)
+
+on:
+  pull_request_target:
+    types: [opened, synchronize]
+    paths:
+      - 'pyproject.toml'
+      - 'poetry.lock'
+      - 'requirements.txt'
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  regen:
+    if: github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    env:
+      HEAD_REF: ${{ github.event.pull_request.head.ref }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.HEAD_REF }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install poetry
+        run: |
+          pipx install poetry
+          poetry self add poetry-plugin-export
+
+      - name: Re-resolve poetry.lock against pyproject.toml
+        run: poetry lock
+
+      - name: Regenerate requirements.txt from poetry.lock
+        run: poetry export --without-hashes -f requirements.txt -o requirements.txt
+
+      - name: Commit & push if changed
+        run: |
+          if ! git diff --quiet poetry.lock requirements.txt; then
+            git config user.name "dependabot[bot]"
+            git config user.email "49699333+dependabot[bot]@users.noreply.github.com"
+            git add poetry.lock requirements.txt
+            git commit -m "chore: re-sync poetry.lock and requirements.txt"
+            git push
+          fi
