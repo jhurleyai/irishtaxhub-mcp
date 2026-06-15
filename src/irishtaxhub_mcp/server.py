@@ -431,6 +431,86 @@ async def get_revenue_ebrief_changelog() -> Any:
 
 
 @mcp.tool
+async def search_tax_treaties(
+    query: Annotated[
+        str,
+        Field(description="Search terms (e.g. 'dividends withholding', 'France royalties')."),
+    ],
+    country: Annotated[
+        Optional[str],
+        Field(description="Country filter. Use `list_tax_treaty_countries` to see options."),
+    ] = None,
+    limit: Annotated[int, Field(description="Maximum results to return.", ge=1, le=50)] = 10,
+) -> Any:
+    """Search Ireland's double-taxation treaty documents (treaties, protocols, MLI texts).
+
+    Find treaty documents by keyword and/or country. Returns titles, country, document
+    type, and identifiers. Use `get_tax_treaty_text` to read the full text of a document.
+    """
+    client, loader, settings = await _get_client_and_loader()
+    try:
+        params: Dict[str, Any] = {"q": query, "limit": limit}
+        if country:
+            params["country"] = country
+        return await client.request("GET", "/v1/tax-treaties", params=params)
+    finally:
+        await client.close()
+
+
+@mcp.tool
+async def get_tax_treaty_text(
+    filename: Annotated[
+        str,
+        Field(
+            description=(
+                "Treaty identifier — accepts a bare filename (e.g. 'usa-1997'),"
+                " a filename with .pdf, the full Revenue PDF URL, or the 'textUrl'"
+                " value from a search result."
+            )
+        ),
+    ],
+) -> Any:
+    """Get the full text of a specific tax-treaty document.
+
+    Use `search_tax_treaties` first to find the document. URLs, paths, and bare
+    filenames are all accepted. Not all documents have extracted text available.
+    """
+    import httpx
+
+    identifier = _normalise_document_identifier(filename)
+
+    client, loader, settings = await _get_client_and_loader()
+    try:
+        return await client.request("GET", f"/v1/tax-treaties/text/{identifier}")
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 404:
+            return {
+                "status": "error",
+                "message": (
+                    f"Full text not available for '{identifier}'. "
+                    "Use the search result metadata (title, description, "
+                    "keywords, country, url) instead."
+                ),
+            }
+        raise
+    finally:
+        await client.close()
+
+
+@mcp.tool
+async def list_tax_treaty_countries() -> Any:
+    """List all countries with an Irish double-taxation treaty.
+
+    Use with `search_tax_treaties` to filter results by country.
+    """
+    client, loader, settings = await _get_client_and_loader()
+    try:
+        return await client.request("GET", "/v1/tax-treaties/countries")
+    finally:
+        await client.close()
+
+
+@mcp.tool
 async def generate_net_income_summary(
     status: Annotated[
         str, Field(description="The 'status' field from the base tax calculation response.")
