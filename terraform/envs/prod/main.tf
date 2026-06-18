@@ -77,7 +77,7 @@ output "prod_dns_setup" {
 
 output "prod_mcp_function_url" {
   value       = module.api_lambda.lambda_function_url
-  description = "Lambda Function URL for MCP (use this directly or via custom domain)"
+  description = "Internal Lambda Function URL (AWS_IAM-locked; invocable only via the CloudFront streaming domain). Not a client endpoint — direct use returns 403. Clients use the streaming custom domain."
 }
 
 output "prod_streaming_custom_domain" {

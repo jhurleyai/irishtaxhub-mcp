@@ -188,8 +188,11 @@ resource "aws_cloudwatch_log_group" "streaming_lambda" {
 }
 
 resource "aws_lambda_function_url" "streaming" {
-  function_name      = aws_lambda_function.streaming.function_name
-  authorization_type = "NONE"
+  function_name = aws_lambda_function.streaming.function_name
+  # AWS_IAM (not NONE) so the raw Function URL is not publicly invocable. Only
+  # CloudFront, via Origin Access Control SigV4 signing + the invoke permission
+  # below, can reach it — forcing all traffic through the edge (WAF + rate limit).
+  authorization_type = "AWS_IAM"
   invoke_mode        = "RESPONSE_STREAM"
 
   cors {
@@ -246,4 +249,18 @@ module "streaming_domain" {
   lambda_function_url_hostname = local.lambda_url_hostname
   web_acl_arn                  = module.streaming_waf.web_acl_arn
   tags                         = var.tags
+}
+
+# Allow ONLY this CloudFront distribution to invoke the AWS_IAM-protected
+# Function URL (paired with the OAC on the distribution). Scoped by SourceArn
+# so no other principal/distribution can invoke it.
+resource "aws_lambda_permission" "cloudfront_invoke_streaming_url" {
+  count = var.create_streaming_domain && var.streaming_certificate_validated ? 1 : 0
+
+  statement_id           = "AllowCloudFrontInvokeFunctionUrl"
+  action                 = "lambda:InvokeFunctionUrl"
+  function_name          = aws_lambda_function.streaming.function_name
+  principal              = "cloudfront.amazonaws.com"
+  source_arn             = module.streaming_domain.distribution_arn
+  function_url_auth_type = "AWS_IAM"
 }
