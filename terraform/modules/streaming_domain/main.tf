@@ -23,9 +23,10 @@ resource "aws_acm_certificate" "streaming_cert" {
 
 # CloudFront only created after cert is validated
 resource "aws_cloudfront_distribution" "streaming" {
-  count   = var.create_domain && var.certificate_validated ? 1 : 0
-  enabled = true
-  aliases = [var.domain_name]
+  count      = var.create_domain && var.certificate_validated ? 1 : 0
+  enabled    = true
+  aliases    = [var.domain_name]
+  web_acl_id = var.web_acl_arn
 
   origin {
     domain_name = var.lambda_function_url_hostname
