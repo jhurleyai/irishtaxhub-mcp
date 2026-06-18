@@ -519,43 +519,6 @@ async def list_tax_treaty_countries() -> Any:
         await client.close()
 
 
-@mcp.tool(title="Generate Net Income Summary", annotations=_READ_ONLY)
-async def generate_net_income_summary(
-    status: Annotated[
-        str, Field(description="The 'status' field from the base tax calculation response.")
-    ],
-    message: Annotated[
-        str, Field(description="The 'message' field from the base tax calculation response.")
-    ],
-    year: Annotated[int, Field(description="Tax year (e.g. 2025).", ge=2024, le=2034)],
-    breakdown: Annotated[
-        Dict[str, Any],
-        Field(description="The full 'breakdown' object from the base tax calculation response."),
-    ],
-) -> Any:
-    """Generate an AI-powered plain-English summary of a tax calculation.
-
-    This takes the OUTPUT from a `calculate_tax` call (with calculator_name="base") and returns
-    a human-readable explanation of the tax breakdown, effective rates, and key insights.
-
-    Workflow: first call `calculate_tax(calculator_name="base", inputs={...})`, then pass the
-    response fields (status, message, year, breakdown) to this tool.
-    """
-    client, loader, settings = await _get_client_and_loader()
-    try:
-        body = {
-            "status": status,
-            "message": message,
-            "year": year,
-            "breakdown": breakdown,
-        }
-        return await client.request(
-            "POST", "/v1/tax/calculators/net-income-summary", json_body=body
-        )
-    finally:
-        await client.close()
-
-
 # Mapping from MCP calculator names to the frontend slugs used by the stats API
 _STATS_SLUG_MAP: Dict[str, str] = {
     "base": "salary-after-tax",
