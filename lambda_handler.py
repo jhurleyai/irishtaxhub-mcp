@@ -3,7 +3,11 @@ import os
 
 from mangum import Mangum
 
-from irishtaxhub_mcp.middleware import RequireOriginSecret, StripTrailingSlash
+from irishtaxhub_mcp.middleware import (
+    FaviconRedirect,
+    RequireOriginSecret,
+    StripTrailingSlash,
+)
 from irishtaxhub_mcp.server import mcp
 
 # Configure logging using env LOG_LEVEL (default INFO)
@@ -30,6 +34,6 @@ def handler(event, context):
     # StreamableHTTPSessionManager only supports a single lifespan cycle.
     # Wrap with the same origin-lock + slash-normalisation as the streaming
     # entrypoint so the API Gateway path is not an unprotected way to reach MCP.
-    asgi_app = StripTrailingSlash(RequireOriginSecret(mcp.http_app()))
+    asgi_app = FaviconRedirect(StripTrailingSlash(RequireOriginSecret(mcp.http_app())))
     mangum_handler = Mangum(asgi_app, api_gateway_base_path=f"/{_api_stage}")
     return mangum_handler(event, context)
