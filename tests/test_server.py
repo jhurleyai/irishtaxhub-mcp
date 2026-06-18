@@ -17,7 +17,6 @@ EXPECTED_TOOLS = [
     "search_tax_treaties",
     "get_tax_treaty_text",
     "list_tax_treaty_countries",
-    "generate_net_income_summary",
     "get_calculator_stats",
 ]
 
