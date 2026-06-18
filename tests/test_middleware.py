@@ -1,7 +1,11 @@
 import asyncio
 
 from irishtaxhub_mcp.asgi import app
-from irishtaxhub_mcp.middleware import RequireOriginSecret, StripTrailingSlash
+from irishtaxhub_mcp.middleware import (
+    FaviconRedirect,
+    RequireOriginSecret,
+    StripTrailingSlash,
+)
 
 # ---- StripTrailingSlash ----
 
@@ -100,6 +104,40 @@ def test_does_not_gate_lookalike_prefix():
     assert state["reached"] is True
 
 
-def test_app_is_wrapped_outermost_with_strip_trailing_slash():
-    assert isinstance(app, StripTrailingSlash)
-    assert isinstance(app.app, RequireOriginSecret)
+def test_app_is_wrapped_favicon_then_slash_then_secret():
+    assert isinstance(app, FaviconRedirect)
+    assert isinstance(app.app, StripTrailingSlash)
+    assert isinstance(app.app.app, RequireOriginSecret)
+
+
+# ---- FaviconRedirect ----
+
+
+def _run_favicon(path):
+    state = {"reached": False, "status": None, "location": None}
+
+    async def inner(scope, receive, send):
+        state["reached"] = True
+
+    async def send(message):
+        if message["type"] == "http.response.start":
+            state["status"] = message["status"]
+            for name, value in message["headers"]:
+                if name == b"location":
+                    state["location"] = value
+
+    asyncio.run(FaviconRedirect(inner)({"type": "http", "path": path}, None, send))
+    return state
+
+
+def test_favicon_redirects_to_main_site():
+    state = _run_favicon("/favicon.ico")
+    assert state["reached"] is False
+    assert state["status"] == 302
+    assert state["location"] == b"https://www.irishtaxhub.ie/favicon.ico"
+
+
+def test_favicon_middleware_passes_other_paths_through():
+    state = _run_favicon("/mcp")
+    assert state["reached"] is True
+    assert state["status"] is None

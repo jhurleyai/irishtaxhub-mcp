@@ -11,6 +11,36 @@ import os
 _PROTECTED_PREFIX = "/mcp"
 _VERIFY_HEADER = b"x-origin-verify"
 
+# The MCP endpoint is an API with no HTML, so it has no favicon — which means the
+# connector directory (and tool-call UI), which fetches the logo from the MCP
+# domain's favicon, would show a generic icon. Redirect /favicon.ico to the main
+# site's favicon so the Irish Tax Hub brand mark is used instead.
+_FAVICON_PATH = "/favicon.ico"
+_FAVICON_TARGET = b"https://www.irishtaxhub.ie/favicon.ico"
+
+
+class FaviconRedirect:
+    """Redirect ``/favicon.ico`` to the main site favicon (302)."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and scope.get("path") == _FAVICON_PATH:
+            await send(
+                {
+                    "type": "http.response.start",
+                    "status": 302,
+                    "headers": [
+                        (b"location", _FAVICON_TARGET),
+                        (b"cache-control", b"public, max-age=86400"),
+                    ],
+                }
+            )
+            await send({"type": "http.response.body", "body": b""})
+            return
+        await self.app(scope, receive, send)
+
 
 class StripTrailingSlash:
     """Normalise a trailing slash off the request path before routing.
