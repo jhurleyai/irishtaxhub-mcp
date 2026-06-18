@@ -189,13 +189,7 @@ create_permissions_policy() {
                 "cloudfront:DeleteDistribution",
                 "cloudfront:TagResource",
                 "cloudfront:UntagResource",
-                "cloudfront:ListTagsForResource",
-                "cloudfront:CreateOriginAccessControl",
-                "cloudfront:GetOriginAccessControl",
-                "cloudfront:GetOriginAccessControlConfig",
-                "cloudfront:UpdateOriginAccessControl",
-                "cloudfront:DeleteOriginAccessControl",
-                "cloudfront:ListOriginAccessControls"
+                "cloudfront:ListTagsForResource"
             ],
             "Resource": "*"
         },
