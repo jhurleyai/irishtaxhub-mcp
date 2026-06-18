@@ -157,6 +157,12 @@ resource "aws_lambda_function" "streaming" {
   memory_size = var.lambda_memory_mb
   timeout     = var.lambda_timeout_seconds
 
+  # Global concurrency cap = cost circuit-breaker. Also closes the gap WAF
+  # can't see: a single long-lived SSE connection is one request, invisible
+  # to the per-IP rate rule, but still bounded by total concurrent invocations.
+  # -1 = unreserved (no cap).
+  reserved_concurrent_executions = var.streaming_reserved_concurrency
+
   layers = var.lambda_web_adapter_layer_arn == "" ? [] : [var.lambda_web_adapter_layer_arn]
 
   environment {
@@ -202,6 +208,27 @@ locals {
 }
 
 ############################
+# Streaming WAF (rate limiting for the public MCP endpoint)
+############################
+
+# CLOUDFRONT-scope WAF must live in us-east-1; map that provider as the
+# module's default. Instantiated before streaming_domain so its ARN is
+# available to attach to the distribution.
+module "streaming_waf" {
+  source = "../streaming_waf"
+
+  providers = {
+    aws = aws.us_east_1
+  }
+
+  enable              = var.enable_streaming_waf
+  block_mode          = var.streaming_waf_block_mode
+  rate_limit_per_5min = var.streaming_rate_limit_per_5min
+  name                = local.full_name
+  tags                = var.tags
+}
+
+############################
 # Streaming Custom Domain (CloudFront)
 ############################
 
@@ -217,5 +244,6 @@ module "streaming_domain" {
   domain_name                  = var.streaming_domain_name
   certificate_validated        = var.streaming_certificate_validated
   lambda_function_url_hostname = local.lambda_url_hostname
+  web_acl_arn                  = module.streaming_waf.web_acl_arn
   tags                         = var.tags
 }
