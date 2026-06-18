@@ -65,6 +65,16 @@ def test_every_tool_declares_read_only_hint():
     assert not bad, f"Tools not declaring readOnlyHint=True: {bad}"
 
 
+def test_every_tool_declares_open_world_hint():
+    """Every tool reaches the external Irish Tax Hub API, so each sets openWorldHint=True."""
+    bad = [
+        t.name
+        for t in _get_tools()
+        if t.annotations is None or t.annotations.openWorldHint is not True
+    ]
+    assert not bad, f"Tools not declaring openWorldHint=True: {bad}"
+
+
 def test_mcp_http_app():
     """Verify FastMCP produces an ASGI app for Lambda."""
     app = mcp.http_app()
