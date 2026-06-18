@@ -42,6 +42,39 @@ def test_mcp_server_tool_count():
     ), f"Expected {len(EXPECTED_TOOLS)} tools, got {len(tool_names)}: {tool_names}"
 
 
+def _get_tools():
+    return asyncio.run(mcp.list_tools())
+
+
+def test_every_tool_has_a_title():
+    """Directory requirement: every tool must expose a human-readable title."""
+    missing = [t.name for t in _get_tools() if not t.title]
+    assert not missing, f"Tools missing a title: {missing}"
+
+
+def test_every_tool_declares_read_only_hint():
+    """Directory requirement: every tool must declare readOnlyHint/destructiveHint.
+
+    All tools in this server are read-only, so each must set readOnlyHint=True.
+    """
+    bad = [
+        t.name
+        for t in _get_tools()
+        if t.annotations is None or t.annotations.readOnlyHint is not True
+    ]
+    assert not bad, f"Tools not declaring readOnlyHint=True: {bad}"
+
+
+def test_every_tool_declares_open_world_hint():
+    """Every tool reaches the external Irish Tax Hub API, so each sets openWorldHint=True."""
+    bad = [
+        t.name
+        for t in _get_tools()
+        if t.annotations is None or t.annotations.openWorldHint is not True
+    ]
+    assert not bad, f"Tools not declaring openWorldHint=True: {bad}"
+
+
 def test_mcp_http_app():
     """Verify FastMCP produces an ASGI app for Lambda."""
     app = mcp.http_app()
