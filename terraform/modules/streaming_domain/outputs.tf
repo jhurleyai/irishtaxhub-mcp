@@ -15,11 +15,6 @@ output "cloudfront_domain_name" {
   value       = var.create_domain && var.certificate_validated ? aws_cloudfront_distribution.streaming[0].domain_name : null
 }
 
-output "distribution_arn" {
-  description = "ARN of the streaming CloudFront distribution (for the Lambda invoke permission), or null when not created."
-  value       = var.create_domain && var.certificate_validated ? aws_cloudfront_distribution.streaming[0].arn : null
-}
-
 output "streaming_url" {
   description = "Custom domain URL for streaming endpoint"
   value       = var.create_domain ? "https://${var.domain_name}" : null

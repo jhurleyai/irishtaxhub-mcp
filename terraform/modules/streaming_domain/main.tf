@@ -21,20 +21,6 @@ resource "aws_acm_certificate" "streaming_cert" {
   }
 }
 
-# Origin Access Control: CloudFront SigV4-signs every request to the Lambda
-# Function URL origin. Combined with the Function URL's AWS_IAM auth + an
-# invoke permission scoped to this distribution, it means the raw
-# *.lambda-url.* origin rejects (403) any request that didn't come through and
-# get signed by this distribution — so the WAF/edge controls can't be bypassed.
-resource "aws_cloudfront_origin_access_control" "lambda" {
-  count                             = var.create_domain && var.certificate_validated ? 1 : 0
-  name                              = "${var.domain_name}-oac"
-  description                       = "OAC for the MCP streaming Lambda Function URL origin"
-  origin_access_control_origin_type = "lambda"
-  signing_behavior                  = "always"
-  signing_protocol                  = "sigv4"
-}
-
 # CloudFront only created after cert is validated
 resource "aws_cloudfront_distribution" "streaming" {
   count      = var.create_domain && var.certificate_validated ? 1 : 0
@@ -43,15 +29,26 @@ resource "aws_cloudfront_distribution" "streaming" {
   web_acl_id = var.web_acl_arn
 
   origin {
-    domain_name              = var.lambda_function_url_hostname
-    origin_id                = "lambda-streaming"
-    origin_access_control_id = aws_cloudfront_origin_access_control.lambda[0].id
+    domain_name = var.lambda_function_url_hostname
+    origin_id   = "lambda-streaming"
 
     custom_origin_config {
       http_port              = 80
       https_port             = 443
       origin_protocol_policy = "https-only"
       origin_ssl_protocols   = ["TLSv1.2"]
+    }
+
+    # Shared-secret origin lock: CloudFront injects this header on every origin
+    # request. The Lambda app rejects /mcp requests without it, so the raw
+    # Function URL (and the API Gateway path) can't be used to bypass the edge.
+    # OAC/SigV4 can't be used here because CloudFront can't sign POST bodies to
+    # Lambda Function URLs, and MCP is POST-based. CloudFront origin custom
+    # headers override any viewer-supplied header of the same name, so it can't
+    # be spoofed through the edge.
+    custom_header {
+      name  = "X-Origin-Verify"
+      value = var.origin_verify_secret
     }
   }
 
@@ -60,13 +57,9 @@ resource "aws_cloudfront_distribution" "streaming" {
     cached_methods   = ["GET", "HEAD", "OPTIONS"]
     target_origin_id = "lambda-streaming"
 
-    # NOTE: "Authorization" is intentionally NOT forwarded — CloudFront OAC owns
-    # that header for the SigV4 origin signature, and forwarding a viewer-supplied
-    # one would break signing (403). This connector is no-auth, so nothing relies
-    # on a viewer Authorization header reaching the origin.
     forwarded_values {
       query_string = true
-      headers      = ["Accept", "Content-Type", "Origin", "Mcp-Session-Id"]
+      headers      = ["Accept", "Authorization", "Content-Type", "Origin", "Mcp-Session-Id"]
 
       cookies {
         forward = "all"
