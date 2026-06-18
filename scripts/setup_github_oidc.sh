@@ -192,6 +192,7 @@ create_permissions_policy() {
                 "cloudfront:ListTagsForResource",
                 "cloudfront:CreateOriginAccessControl",
                 "cloudfront:GetOriginAccessControl",
+                "cloudfront:GetOriginAccessControlConfig",
                 "cloudfront:UpdateOriginAccessControl",
                 "cloudfront:DeleteOriginAccessControl",
                 "cloudfront:ListOriginAccessControls"
