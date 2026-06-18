@@ -21,6 +21,24 @@ resource "aws_acm_certificate" "streaming_cert" {
   }
 }
 
+# TRANSITIONAL (OAC unwind, step 1 of 2): the OAC approach was abandoned (it
+# can't sign POST bodies to Lambda Function URLs). This resource is kept ONLY so
+# Terraform does not try to delete it in the same apply that removes its
+# reference from the distribution below — CloudFront returns 409
+# OriginAccessControlInUse if the OAC is deleted before the distribution update
+# has propagated. The distribution no longer references it (it uses the
+# X-Origin-Verify custom header instead). A follow-up PR removes this resource
+# once the distribution is deployed without it. Safe to drop the count guard's
+# tail because it already exists in stage/prod state.
+resource "aws_cloudfront_origin_access_control" "lambda" {
+  count                             = var.create_domain && var.certificate_validated ? 1 : 0
+  name                              = "${var.domain_name}-oac"
+  description                       = "OAC for the MCP streaming Lambda Function URL origin"
+  origin_access_control_origin_type = "lambda"
+  signing_behavior                  = "always"
+  signing_protocol                  = "sigv4"
+}
+
 # CloudFront only created after cert is validated
 resource "aws_cloudfront_distribution" "streaming" {
   count      = var.create_domain && var.certificate_validated ? 1 : 0
