@@ -1,158 +1,157 @@
-# IrishTaxHub MCP Server
+# Irish Tax Hub MCP server
 
-Model Context Protocol (MCP) server that exposes IrishTaxHub API operations as tools.
+FastMCP server exposing a curated, read-only toolset backed by the Irish Tax Hub API.
 
-This server now uses FastMCP v2 for a simpler, production-ready implementation.
+## Hosted endpoints
 
-## Features
-- Dynamic OpenAPI-powered tools only:
-  - `openapi_list_endpoints(tag?)` → discover available endpoints
-  - `openapi_get_request_schema(path, method=POST)` → JSON Schema for request body
-  - `openapi_invoke(path, method=POST, body?, params?)` → validate and call dynamically
+- Production: `https://mcp-prod.aws.irishtaxhub.ie/mcp`
+- Stage: `https://mcp-stage.aws.irishtaxhub.ie/mcp`
+
+The hosted service uses stateless Streamable HTTP. For local MCP clients, run the same server over
+standard input/output as described below.
+
+## Tools
+
+| Tool | Purpose |
+|---|---|
+| `calculate_tax` | Run one of the supported Irish tax calculators |
+| `get_calculator_schema` | Return the input schema for a calculator |
+| `list_calculators` | List calculator names and descriptions |
+| `get_tax_constants` | Return tax constants for a supported year |
+| `get_key_dates` | Return Irish tax deadlines and key dates |
+| `search_revenue_documents` | Search Revenue Tax and Duty Manuals |
+| `get_revenue_document_text` | Retrieve the text of a Revenue document |
+| `list_revenue_document_categories` | List Revenue document categories |
+| `get_revenue_ebrief_changelog` | Return the latest Revenue eBrief changes |
+| `search_tax_treaties` | Search Ireland's double-taxation treaty corpus |
+| `get_tax_treaty_text` | Retrieve treaty, protocol, or MLI text |
+| `list_tax_treaty_countries` | List countries in the treaty corpus |
+| `get_calculator_stats` | Return usage statistics for a calculator |
+
+Tools are deliberately curated rather than generated dynamically. The OpenAPI document is used to
+validate calculator requests, while stable tool names and descriptions form the MCP interface.
 
 ## Install
 
-Use Poetry (recommended) or pip.
+Python 3.11 and Poetry are recommended:
 
 ```bash
-# With Poetry
 poetry install
+```
 
-# Or with pip
+An editable pip installation also works:
+
+```bash
 pip install -e .
-
-# If running directly with FastMCP CLI
-pip install fastmcp
 ```
 
 ## Configure
 
-Set environment variables (or copy `.env.example` to `.env`):
+The server reads these environment variables:
 
-**For production use:**
+| Variable | Default | Purpose |
+|---|---|---|
+| `IRISHTAXHUB_BASE_URL` | `http://localhost:5000` | Irish Tax Hub API base URL |
+| `IRISHTAXHUB_OPENAPI` | `<base-url>/openapi.json` | OpenAPI file path or URL used for validation |
+| `IRISHTAXHUB_API_KEY` | unset | Optional API key forwarded to the API |
+| `IRISHTAXHUB_TIMEOUT` | `30` | HTTP timeout in seconds |
+
+For production-backed local use:
+
 ```bash
 export IRISHTAXHUB_BASE_URL="https://prod.aws.irishtaxhub.ie"
-export IRISHTAXHUB_TIMEOUT="30"
-# OpenAPI source (file or URL). Defaults to "$IRISHTAXHUB_BASE_URL/apispec_1.json".
-export IRISHTAXHUB_OPENAPI="https://prod.aws.irishtaxhub.ie/apispec_1.json"
-export IRISHTAXHUB_DEVELOPMENT_MODE=false
+export IRISHTAXHUB_OPENAPI="https://prod.aws.irishtaxhub.ie/openapi.json"
+poetry run irishtaxhub-mcp
 ```
 
-**For local development (if running the API locally):**
-```bash
-export IRISHTAXHUB_BASE_URL="http://localhost:5000"
-export IRISHTAXHUB_TIMEOUT="30"
-export IRISHTAXHUB_OPENAPI="http://localhost:5000/openapi.json"
-export IRISHTAXHUB_DEVELOPMENT_MODE=true
-```
-
-## Run (local)
-
-Standard I/O server (used by MCP clients):
+For a locally running API, the defaults are sufficient. You can also run the module or FastMCP
+entrypoint directly:
 
 ```bash
 python -m irishtaxhub_mcp.server
-# or via Poetry
-poetry run irishtaxhub-mcp
-
-# or run with the FastMCP CLI (equivalent)
 fastmcp run src/irishtaxhub_mcp/server.py
 ```
 
-## Use with Claude Desktop
+## MCP client configuration
 
-Add an MCP server entry to your Claude Desktop config (replace path as needed):
+Example local standard-input/output configuration:
 
-**For production use:**
 ```json
 {
   "mcpServers": {
     "irishtaxhub": {
-      "command": "python",
-      "args": ["-m", "irishtaxhub_mcp.server"],
+      "command": "poetry",
+      "args": ["run", "irishtaxhub-mcp"],
+      "cwd": "/absolute/path/to/irishtaxhub-mcp",
       "env": {
         "IRISHTAXHUB_BASE_URL": "https://prod.aws.irishtaxhub.ie",
-        "IRISHTAXHUB_OPENAPI": "https://prod.aws.irishtaxhub.ie/apispec_1.json"
+        "IRISHTAXHUB_OPENAPI": "https://prod.aws.irishtaxhub.ie/openapi.json"
       }
     }
   }
 }
 ```
 
-**For local development:**
-```json
-{
-  "mcpServers": {
-    "irishtaxhub": {
-      "command": "python",
-      "args": ["-m", "irishtaxhub_mcp.server"],
-      "env": {
-        "IRISHTAXHUB_BASE_URL": "http://localhost:5000",
-        "IRISHTAXHUB_OPENAPI": "http://localhost:5000/openapi.json"
-      }
-    }
-  }
-}
-```
-
-Then restart Claude Desktop; tools will appear as `openapi_list_endpoints`,
-`openapi_get_request_schema`, and `openapi_invoke`.
+Restart the client after changing its MCP configuration.
 
 ## Examples
 
-Dynamic discovery + invocation:
+Discover the available calculators, inspect the selected input schema, and then calculate:
+
+```json
+{"tool": "list_calculators", "arguments": {}}
+```
 
 ```json
 {
-  "tool": "openapi_list_endpoints",
-  "arguments": { "tag": "Tax Calculators" }
+  "tool": "get_calculator_schema",
+  "arguments": {"calculator_name": "refund"}
 }
 ```
 
 ```json
 {
-  "tool": "openapi_get_request_schema",
-  "arguments": { "path": "/v1/tax/calculators/refund", "method": "POST" }
-}
-```
-
-```json
-{
-  "tool": "openapi_invoke",
+  "tool": "calculate_tax",
   "arguments": {
-    "path": "/v1/tax/calculators/refund",
-    "method": "POST",
-    "body": {
+    "calculator_name": "refund",
+    "inputs": {
       "marital_status": "single",
-      "year": 2024,
-      "employment_income": { "income": 50000 }
+      "year": 2025,
+      "employment_income": {"income": 50000, "tax_paid": 18000}
     }
   }
 }
 ```
 
-## Notes
-- Tools call your deployed HTTP API; they do not import internal Python modules. This keeps the MCP server lightweight and decoupled.
-- Dynamic tools load your OpenAPI definition from a file or via HTTP. For local development, you can point `IRISHTAXHUB_OPENAPI` at your repo’s `openapi.yaml` — Jinja templating is supported.
-- If you prefer in-process usage, you can create another variant inside the API repo that imports facades directly.
+Search the Revenue and treaty corpora:
 
-## Claude PR Review (GitHub Action)
+```json
+{"tool": "search_revenue_documents", "arguments": {"query": "principal private residence"}}
+```
 
-This repo includes a GitHub Action (`.github/workflows/claude-pr-review.yml`) that automatically reviews PRs using Claude. It requires a `CLAUDE_CODE_OAUTH_TOKEN` secret.
+```json
+{"tool": "search_tax_treaties", "arguments": {"query": "employment income", "country": "France"}}
+```
 
-### Generating the token
+## Development
 
-1. Run `claude setup-token` in your terminal — this opens a browser to authenticate with your Claude account and outputs an OAuth token
-2. Copy the token
+```bash
+poetry run black --check .
+poetry run isort --check-only .
+poetry run flake8 .
+poetry run pytest
+```
 
-### Setting the secret
+The implementation calls the deployed HTTP API rather than importing API internals, keeping this
+service small and independently deployable. `src/irishtaxhub_mcp/asgi.py` provides the ASGI
+entrypoint used by the Lambda Web Adapter deployment.
+
+## Claude PR review
+
+`.github/workflows/claude-pr-review.yml` can review pull requests when the repository has a valid
+`CLAUDE_CODE_OAUTH_TOKEN` secret. Generate a replacement with `claude setup-token` when required,
+then update it with:
 
 ```bash
 gh secret set CLAUDE_CODE_OAUTH_TOKEN --repo jhurleyai/irishtaxhub-mcp
 ```
-
-Paste the token when prompted.
-
-### When to regenerate
-
-The token is tied to your Claude subscription. If your subscription lapses and you renew, the existing token is invalidated — you must run `claude setup-token` again and update the secret.
