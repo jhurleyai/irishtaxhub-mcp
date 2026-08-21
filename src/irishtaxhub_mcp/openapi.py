@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 import httpx
 import yaml
@@ -77,30 +77,6 @@ class OpenAPILoader:
             return json.loads(raw)
         except Exception:
             return yaml.safe_load(raw)
-
-
-def list_endpoints(spec: Dict[str, Any], tag: Optional[str] = None) -> List[Dict[str, Any]]:
-    results: List[Dict[str, Any]] = []
-    paths = spec.get("paths", {})
-    for path, ops in paths.items():
-        for method, op in ops.items():
-            if method.lower() not in {"get", "post", "put", "delete", "patch"}:
-                continue
-            tags = op.get("tags", [])
-            if tag and tag not in tags:
-                continue
-            effective_path = normalize_path(spec, path)
-            results.append(
-                {
-                    "path": path,
-                    "effectivePath": effective_path,
-                    "method": method.upper(),
-                    "summary": op.get("summary"),
-                    "operationId": op.get("operationId"),
-                    "tags": tags,
-                }
-            )
-    return results
 
 
 def _resolve_ref(spec: Dict[str, Any], ref: str) -> Dict[str, Any]:
