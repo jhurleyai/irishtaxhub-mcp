@@ -53,8 +53,9 @@ def test_get_tax_treaty_text_404_friendly():
         server, "_get_client_and_loader", AsyncMock(return_value=(client, None, None))
     ):
         result = asyncio.run(server.get_tax_treaty_text(filename="missing"))
-    assert result["status"] == "error"
-    assert "not available" in result["message"]
+    assert result.structured_content["status"] == "error"
+    assert "not available" in result.structured_content["message"]
+    assert result.structured_content["attribution"]["provider"] == "Irish Tax Hub"
 
 
 def test_list_tax_treaty_countries_request():

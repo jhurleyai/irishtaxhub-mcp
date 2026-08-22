@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import json
+from datetime import datetime, timezone
 from typing import Annotated, Any, Dict, List, Literal, Optional
 
 from fastmcp import FastMCP
+from fastmcp.tools import ToolResult
+from mcp.types import ResourceLink, TextContent
 from pydantic import Field
 
 from .client import IrishTaxHubClient
@@ -13,8 +17,77 @@ mcp = FastMCP("irishtaxhub-mcp")
 
 # Every tool in this server is read-only and reaches the external Irish Tax Hub
 # API (which fronts Revenue data), so all tools share these MCP annotations.
-# The connector-directory review requires each tool to declare readOnlyHint.
-_READ_ONLY = {"readOnlyHint": True, "openWorldHint": True}
+# Connector-directory review requires every hint to be explicit.
+_READ_ONLY = {
+    "readOnlyHint": True,
+    "openWorldHint": True,
+    "destructiveHint": False,
+}
+
+_SITE_URL = "https://www.irishtaxhub.ie"
+_API_DOCS_URL = "https://prod.aws.irishtaxhub.ie/docs"
+
+
+def _site_url(path: str) -> str:
+    return f"{_SITE_URL}{path}"
+
+
+def _calculator_url(calculator_name: str) -> str:
+    slug = _STATS_SLUG_MAP.get(calculator_name, calculator_name)
+    return _site_url(f"/calculators/{slug}")
+
+
+def _with_attribution(
+    result: Any,
+    *,
+    source_url: str,
+    relevant_url: Optional[str] = None,
+    schema_result: bool = False,
+) -> ToolResult:
+    """Add visible attribution without hiding or replacing the upstream result."""
+    continue_url = relevant_url or source_url
+    attribution = {
+        "provider": "Irish Tax Hub",
+        "source_url": source_url,
+        "methodology_url": _API_DOCS_URL,
+        "last_updated": datetime.now(timezone.utc).date().isoformat(),
+        "last_updated_note": "Live data retrieved from Irish Tax Hub on this date.",
+        "relevant_url": continue_url,
+        "action": {
+            "label": "Continue on Irish Tax Hub",
+            "url": continue_url,
+        },
+    }
+
+    if isinstance(result, dict):
+        structured_content = dict(result)
+    else:
+        # FastMCP already wraps list return values in a `result` object. Keep
+        # that stable shape when supplying a custom ToolResult.
+        structured_content = {"result": result}
+
+    attribution_key = "x-irish-tax-hub-attribution" if schema_result else "attribution"
+    structured_content[attribution_key] = attribution
+
+    return ToolResult(
+        content=[
+            TextContent(
+                type="text",
+                text=json.dumps(structured_content, ensure_ascii=False, default=str),
+            ),
+            ResourceLink(
+                type="resource_link",
+                name="continue-on-irish-tax-hub",
+                title="Continue on Irish Tax Hub",
+                uri=continue_url,
+                description="Open the relevant Irish Tax Hub calculator or guide.",
+                mimeType="text/html",
+            ),
+        ],
+        structured_content=structured_content,
+        meta={"attribution": attribution},
+    )
+
 
 # All available calculator names with their API paths
 CALCULATORS: Dict[str, Dict[str, str]] = {
@@ -154,34 +227,34 @@ Common examples:
 
 base (income tax): {{"marital_status": "single", \
 "employment_income": {{"income": 75000, "period": "annual"}}, \
-"year": 2025}}
+"year": 2026}}
 
 marital_status options: single, widow, \
 married_one_income, married_two_income
 
 refund: {{"marital_status": "single", \
 "employment_income": {{"income": 50000, "tax_paid": 18000}}, \
-"year": 2025}}
+"year": 2026}}
 
 capital-gains: {{"sale_price": 400000, \
 "purchase_price": 250000, "purchase_date": "2018-03-15", \
-"sale_date": "2025-06-01", "year": 2025}}
+"sale_date": "2026-06-01", "year": 2026}}
 
 mortgage: {{"home_price": 400000, "deposit": 40000, \
 "loan_term_years": 30, "interest_rate": 4.0}}
 
 work-from-home-expense: {{"electricity_costs": 1200, \
 "heating_costs": 800, "internet_costs": 600, \
-"tax_year": 2025, "total_earnings": 75000, \
+"tax_year": 2026, "total_earnings": 75000, \
 "days_working_from_home": 200}}
 
-avc: {{"age": 45, "gross_earnings": 100000, "year": 2025}}
+avc: {{"age": 45, "gross_earnings": 100000, "year": 2026}}
 
 share-options: {{"share_option_price": 10, \
 "sale_price": 50, "number_of_units": 1000}}
 
 redundancy-tax: {{"employment_start_date": "2010-01-01", \
-"employment_end_date": "2025-06-01", "gross_weekly_pay": 1500}}
+"employment_end_date": "2026-06-01", "gross_weekly_pay": 1500}}
 
 mortgage-affordability: {{"buyer_type": "first_time_buyer", \
 "gross_annual_income_1": 75000, "savings": 50000}}"""
@@ -226,7 +299,13 @@ async def calculate_tax(
     try:
         spec = await loader.load()
         validate_body(spec, calc["path"], "post", inputs)
-        return await client.request("POST", calc["path"], json_body=inputs)
+        result = await client.request("POST", calc["path"], json_body=inputs)
+        calculator_url = _calculator_url(calculator_name)
+        return _with_attribution(
+            result,
+            source_url=calculator_url,
+            relevant_url=calculator_url,
+        )
     finally:
         await client.close()
 
@@ -254,7 +333,13 @@ async def get_calculator_schema(
     loader = OpenAPILoader(settings.base_url, settings.openapi, settings.timeout)
     spec = await loader.load()
     schema = get_request_body_schema(spec, calc["path"], "post")
-    return schema or {}
+    calculator_url = _calculator_url(calculator_name)
+    return _with_attribution(
+        schema or {},
+        source_url=calculator_url,
+        relevant_url=calculator_url,
+        schema_result=True,
+    )
 
 
 @mcp.tool(title="List Tax Calculators", annotations=_READ_ONLY)
@@ -263,7 +348,19 @@ async def list_calculators() -> List[Dict[str, str]]:
 
     Returns a list of calculators that can be used with the `calculate_tax` tool.
     """
-    return [{"name": name, "description": info["summary"]} for name, info in CALCULATORS.items()]
+    result = [
+        {
+            "name": name,
+            "description": info["summary"],
+            "url": _calculator_url(name),
+        }
+        for name, info in CALCULATORS.items()
+    ]
+    return _with_attribution(
+        result,
+        source_url=_site_url("/calculators"),
+        relevant_url=_site_url("/calculators"),
+    )
 
 
 @mcp.tool(title="Get Tax Constants", annotations=_READ_ONLY)
@@ -284,7 +381,12 @@ async def get_tax_constants(
         params = {}
         if year is not None:
             params["year"] = year
-        return await client.request("GET", "/v1/tax/constants", params=params or None)
+        result = await client.request("GET", "/v1/tax/constants", params=params or None)
+        return _with_attribution(
+            result,
+            source_url=_site_url("/irish-income-tax-hub"),
+            relevant_url=_site_url("/calculators/salary-after-tax"),
+        )
     finally:
         await client.close()
 
@@ -319,7 +421,12 @@ async def get_key_dates(
             body["month"] = month
         if tax_type is not None:
             body["tax_type"] = tax_type
-        return await client.request("POST", "/v1/tax/key-dates", json_body=body or None)
+        result = await client.request("POST", "/v1/tax/key-dates", json_body=body or None)
+        return _with_attribution(
+            result,
+            source_url=_site_url("/tax-calendar"),
+            relevant_url=_site_url("/tax-calendar"),
+        )
     finally:
         await client.close()
 
@@ -351,7 +458,12 @@ async def search_revenue_documents(
         params: Dict[str, Any] = {"q": query, "limit": limit}
         if category:
             params["category"] = category
-        return await client.request("GET", "/v1/revenue/documents", params=params)
+        result = await client.request("GET", "/v1/revenue/documents", params=params)
+        return _with_attribution(
+            result,
+            source_url=_site_url("/revenue-documents"),
+            relevant_url=_site_url("/revenue-documents"),
+        )
     finally:
         await client.close()
 
@@ -397,17 +509,26 @@ async def get_revenue_document_text(
 
     client, loader, settings = await _get_client_and_loader()
     try:
-        return await client.request("GET", f"/v1/revenue/documents/text/{identifier}")
+        result = await client.request("GET", f"/v1/revenue/documents/text/{identifier}")
+        return _with_attribution(
+            result,
+            source_url=_site_url("/revenue-documents"),
+            relevant_url=_site_url("/revenue-documents"),
+        )
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 404:
-            return {
-                "status": "error",
-                "message": (
-                    f"Full text not available for '{identifier}'. "
-                    "Use the search result metadata (title, description, "
-                    "keywords, url) instead."
-                ),
-            }
+            return _with_attribution(
+                {
+                    "status": "error",
+                    "message": (
+                        f"Full text not available for '{identifier}'. "
+                        "Use the search result metadata (title, description, "
+                        "keywords, url) instead."
+                    ),
+                },
+                source_url=_site_url("/revenue-documents"),
+                relevant_url=_site_url("/revenue-documents"),
+            )
         raise
     finally:
         await client.close()
@@ -421,7 +542,12 @@ async def list_revenue_document_categories() -> Any:
     """
     client, loader, settings = await _get_client_and_loader()
     try:
-        return await client.request("GET", "/v1/revenue/documents/categories")
+        result = await client.request("GET", "/v1/revenue/documents/categories")
+        return _with_attribution(
+            result,
+            source_url=_site_url("/revenue-documents"),
+            relevant_url=_site_url("/revenue-documents"),
+        )
     finally:
         await client.close()
 
@@ -434,7 +560,12 @@ async def get_revenue_ebrief_changelog() -> Any:
     """
     client, loader, settings = await _get_client_and_loader()
     try:
-        return await client.request("GET", "/v1/revenue/documents/changelog")
+        result = await client.request("GET", "/v1/revenue/documents/changelog")
+        return _with_attribution(
+            result,
+            source_url=_site_url("/revenue-documents"),
+            relevant_url=_site_url("/revenue-documents"),
+        )
     finally:
         await client.close()
 
@@ -461,7 +592,12 @@ async def search_tax_treaties(
         params: Dict[str, Any] = {"q": query, "limit": limit}
         if country:
             params["country"] = country
-        return await client.request("GET", "/v1/tax-treaties", params=params)
+        result = await client.request("GET", "/v1/tax-treaties", params=params)
+        return _with_attribution(
+            result,
+            source_url=_site_url("/mcp"),
+            relevant_url=_site_url("/mcp"),
+        )
     finally:
         await client.close()
 
@@ -490,17 +626,26 @@ async def get_tax_treaty_text(
 
     client, loader, settings = await _get_client_and_loader()
     try:
-        return await client.request("GET", f"/v1/tax-treaties/text/{identifier}")
+        result = await client.request("GET", f"/v1/tax-treaties/text/{identifier}")
+        return _with_attribution(
+            result,
+            source_url=_site_url("/mcp"),
+            relevant_url=_site_url("/mcp"),
+        )
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 404:
-            return {
-                "status": "error",
-                "message": (
-                    f"Full text not available for '{identifier}'. "
-                    "Use the search result metadata (title, description, "
-                    "keywords, country, url) instead."
-                ),
-            }
+            return _with_attribution(
+                {
+                    "status": "error",
+                    "message": (
+                        f"Full text not available for '{identifier}'. "
+                        "Use the search result metadata (title, description, "
+                        "keywords, country, url) instead."
+                    ),
+                },
+                source_url=_site_url("/mcp"),
+                relevant_url=_site_url("/mcp"),
+            )
         raise
     finally:
         await client.close()
@@ -514,7 +659,12 @@ async def list_tax_treaty_countries() -> Any:
     """
     client, loader, settings = await _get_client_and_loader()
     try:
-        return await client.request("GET", "/v1/tax-treaties/countries")
+        result = await client.request("GET", "/v1/tax-treaties/countries")
+        return _with_attribution(
+            result,
+            source_url=_site_url("/mcp"),
+            relevant_url=_site_url("/mcp"),
+        )
     finally:
         await client.close()
 
@@ -561,7 +711,13 @@ async def get_calculator_stats(
     stats_slug = _STATS_SLUG_MAP.get(calculator_name, calculator_name)
     client, loader, settings = await _get_client_and_loader()
     try:
-        return await client.request("GET", f"/v1/tax/calculators/{stats_slug}/stats")
+        result = await client.request("GET", f"/v1/tax/calculators/{stats_slug}/stats")
+        calculator_url = _calculator_url(calculator_name)
+        return _with_attribution(
+            result,
+            source_url=calculator_url,
+            relevant_url=calculator_url,
+        )
     finally:
         await client.close()
 
