@@ -1,0 +1,184 @@
+{
+  "$schema": "https://developers.openai.com/apps-sdk/schemas/chatgpt-app-submission.v1.json",
+  "schema_version": 1,
+  "app_info": {
+    "display_name": "Irish Tax Hub",
+    "subtitle": "Irish tax tools and guidance",
+    "description": "Irish Tax Hub helps users estimate Irish taxes, inspect current tax rates and deadlines, search Revenue guidance, and research Ireland's double-taxation treaties through read-only tools.",
+    "category": "FINANCE"
+  },
+  "tools": {
+    "calculate_tax": {
+      "annotations": { "readOnlyHint": true, "openWorldHint": false, "destructiveHint": false },
+      "justifications": {
+        "read_only_justification": "Runs a tax calculation and returns the estimate without saving user inputs or changing records.",
+        "open_world_justification": "Calls Irish Tax Hub's first-party calculation API but does not publish content or change external state.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, submit filings, or make payments."
+      }
+    },
+    "get_calculator_schema": {
+      "annotations": { "readOnlyHint": true, "openWorldHint": false, "destructiveHint": false },
+      "justifications": {
+        "read_only_justification": "Retrieves the input schema for a supported calculator without modifying data.",
+        "open_world_justification": "Reads Irish Tax Hub's first-party API specification and does not change public or third-party state.",
+        "destructive_justification": "Cannot delete, overwrite, revoke access, or perform an irreversible action."
+      }
+    },
+    "list_calculators": {
+      "annotations": { "readOnlyHint": true, "openWorldHint": false, "destructiveHint": false },
+      "justifications": {
+        "read_only_justification": "Lists the calculator registry and relevant Irish Tax Hub links without changing data.",
+        "open_world_justification": "Does not publish content or change any external system.",
+        "destructive_justification": "Cannot delete, overwrite, revoke access, or perform an irreversible action."
+      }
+    },
+    "get_tax_constants": {
+      "annotations": { "readOnlyHint": true, "openWorldHint": false, "destructiveHint": false },
+      "justifications": {
+        "read_only_justification": "Retrieves Irish tax bands, rates, credits, and thresholds for the requested year.",
+        "open_world_justification": "Reads first-party reference data without publishing or changing external state.",
+        "destructive_justification": "Cannot delete, overwrite, revoke access, or perform an irreversible action."
+      }
+    },
+    "get_key_dates": {
+      "annotations": { "readOnlyHint": true, "openWorldHint": false, "destructiveHint": false },
+      "justifications": {
+        "read_only_justification": "Filters and returns Irish Revenue filing and payment deadlines without creating reminders or filings.",
+        "open_world_justification": "Queries first-party reference data and does not change public or third-party state.",
+        "destructive_justification": "Cannot submit, cancel, delete, or alter a tax filing or payment."
+      }
+    },
+    "search_revenue_documents": {
+      "annotations": { "readOnlyHint": true, "openWorldHint": false, "destructiveHint": false },
+      "justifications": {
+        "read_only_justification": "Searches indexed Revenue guidance and returns matching document metadata without modifying the corpus.",
+        "open_world_justification": "Reads Irish Tax Hub's first-party document index without publishing or changing external state.",
+        "destructive_justification": "Cannot delete, replace, or alter Revenue documents."
+      }
+    },
+    "get_revenue_document_text": {
+      "annotations": { "readOnlyHint": true, "openWorldHint": false, "destructiveHint": false },
+      "justifications": {
+        "read_only_justification": "Retrieves pre-extracted text for a selected Revenue document without modifying it.",
+        "open_world_justification": "Reads first-party indexed document text and does not publish or change external state.",
+        "destructive_justification": "Cannot delete, replace, or alter Revenue documents."
+      }
+    },
+    "list_revenue_document_categories": {
+      "annotations": { "readOnlyHint": true, "openWorldHint": false, "destructiveHint": false },
+      "justifications": {
+        "read_only_justification": "Lists the available Revenue document categories and counts without modifying the index.",
+        "open_world_justification": "Reads first-party category metadata without publishing or changing external state.",
+        "destructive_justification": "Cannot delete, replace, or alter categories or documents."
+      }
+    },
+    "get_revenue_ebrief_changelog": {
+      "annotations": { "readOnlyHint": true, "openWorldHint": false, "destructiveHint": false },
+      "justifications": {
+        "read_only_justification": "Retrieves recent Revenue eBrief and Tax and Duty Manual changes without modifying the changelog.",
+        "open_world_justification": "Reads first-party changelog data without publishing or changing external state.",
+        "destructive_justification": "Cannot delete, replace, or alter changelog entries or guidance."
+      }
+    },
+    "search_tax_treaties": {
+      "annotations": { "readOnlyHint": true, "openWorldHint": false, "destructiveHint": false },
+      "justifications": {
+        "read_only_justification": "Searches Ireland's indexed tax-treaty corpus and returns matching document metadata.",
+        "open_world_justification": "Reads Irish Tax Hub's first-party treaty index without publishing or changing external state.",
+        "destructive_justification": "Cannot delete, replace, or alter treaty documents."
+      }
+    },
+    "get_tax_treaty_text": {
+      "annotations": { "readOnlyHint": true, "openWorldHint": false, "destructiveHint": false },
+      "justifications": {
+        "read_only_justification": "Retrieves pre-extracted text for a selected Irish tax-treaty document without modifying it.",
+        "open_world_justification": "Reads first-party indexed treaty text and does not publish or change external state.",
+        "destructive_justification": "Cannot delete, replace, or alter treaty documents."
+      }
+    },
+    "list_tax_treaty_countries": {
+      "annotations": { "readOnlyHint": true, "openWorldHint": false, "destructiveHint": false },
+      "justifications": {
+        "read_only_justification": "Lists countries represented in Ireland's tax-treaty corpus without modifying the index.",
+        "open_world_justification": "Reads first-party treaty metadata without publishing or changing external state.",
+        "destructive_justification": "Cannot delete, replace, or alter countries or treaty documents."
+      }
+    },
+    "get_calculator_stats": {
+      "annotations": { "readOnlyHint": true, "openWorldHint": false, "destructiveHint": false },
+      "justifications": {
+        "read_only_justification": "Retrieves the existing usage count for a calculator without incrementing or changing it.",
+        "open_world_justification": "Reads first-party aggregate statistics without publishing or changing external state.",
+        "destructive_justification": "Cannot reset, overwrite, or delete calculator statistics."
+      }
+    }
+  },
+  "test_cases": [
+    {
+      "description": "Estimate 2026 take-home pay for a single PAYE employee.",
+      "user_prompt": "I earn €75,000 a year in Ireland as a single PAYE employee. Calculate my 2026 take-home pay after income tax, USC and PRSI.",
+      "file_attachment_urls": null,
+      "tools_triggered": "calculate_tax",
+      "expected_output": "Returns an Irish tax calculation with annual, monthly and weekly income-tax, USC, PRSI and net-income figures, plus Irish Tax Hub attribution and a relevant calculator link.",
+      "expected_output_url": "https://www.irishtaxhub.ie/calculators/salary-after-tax"
+    },
+    {
+      "description": "Retrieve the Irish tax rates and thresholds for 2026.",
+      "user_prompt": "What are the Irish income tax bands, USC rates, PRSI rates and main tax credits for 2026?",
+      "file_attachment_urls": null,
+      "tools_triggered": "get_tax_constants",
+      "expected_output": "Returns structured 2026 Irish tax bands, rates, credits and thresholds with source and methodology links.",
+      "expected_output_url": "https://www.irishtaxhub.ie/irish-income-tax-hub"
+    },
+    {
+      "description": "Find Irish self-assessment filing and payment deadlines.",
+      "user_prompt": "Show me the important Irish Income Tax filing and payment deadlines for 2026.",
+      "file_attachment_urls": null,
+      "tools_triggered": "get_key_dates",
+      "expected_output": "Returns the relevant 2026 Revenue deadlines and filters them to Income Tax where supported, with a link to the Irish Tax Hub tax calendar.",
+      "expected_output_url": "https://www.irishtaxhub.ie/tax-calendar"
+    },
+    {
+      "description": "Search official Revenue guidance about principal private residence relief.",
+      "user_prompt": "Find Irish Revenue guidance on principal private residence relief for Capital Gains Tax.",
+      "file_attachment_urls": null,
+      "tools_triggered": "search_revenue_documents",
+      "expected_output": "Returns matching Revenue Tax and Duty Manual documents with titles, identifiers and source metadata.",
+      "expected_output_url": "https://www.irishtaxhub.ie/revenue-documents"
+    },
+    {
+      "description": "Search Ireland's treaty corpus for French employment-income provisions.",
+      "user_prompt": "Find the employment income provisions in Ireland's double-taxation treaty materials for France.",
+      "file_attachment_urls": null,
+      "tools_triggered": "search_tax_treaties",
+      "expected_output": "Returns relevant Irish tax-treaty documents for France with document types, identifiers and source metadata.",
+      "expected_output_url": "https://www.irishtaxhub.ie/mcp"
+    }
+  ],
+  "negative_test_cases": [
+    {
+      "description": "Do not trigger for a tax system outside Ireland.",
+      "user_prompt": "Calculate my 2026 US federal and California state income taxes.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The app should not be invoked because it only supports Irish tax calculations and Irish tax reference material.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Do not claim to file a return or make a payment.",
+      "user_prompt": "File my Irish income tax return with Revenue and pay the balance from my bank account.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The app should not be invoked because its tools are read-only and cannot file returns, access bank accounts or make payments.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Do not trigger for unrelated personal investment recommendations.",
+      "user_prompt": "Which individual technology stocks should I buy this week?",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The app should not be invoked because stock selection and investment recommendations are outside its Irish tax workflows.",
+      "expected_output_url": null
+    }
+  ]
+}
