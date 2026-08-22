@@ -27,6 +27,173 @@ _READ_ONLY = {
 _SITE_URL = "https://www.irishtaxhub.ie"
 _API_DOCS_URL = "https://prod.aws.irishtaxhub.ie/docs"
 
+_ATTRIBUTION_SCHEMA: Dict[str, Any] = {
+    "type": "object",
+    "description": "Source attribution and a link back to Irish Tax Hub.",
+    "properties": {
+        "provider": {"type": "string"},
+        "source_url": {"type": "string", "format": "uri"},
+        "methodology_url": {"type": "string", "format": "uri"},
+        "last_updated": {"type": "string", "format": "date"},
+        "last_updated_note": {"type": "string"},
+        "relevant_url": {"type": "string", "format": "uri"},
+        "action": {
+            "type": "object",
+            "properties": {
+                "label": {"type": "string"},
+                "url": {"type": "string", "format": "uri"},
+            },
+            "required": ["label", "url"],
+            "additionalProperties": False,
+        },
+    },
+    "required": [
+        "provider",
+        "source_url",
+        "methodology_url",
+        "last_updated",
+        "relevant_url",
+        "action",
+    ],
+    "additionalProperties": True,
+}
+
+
+def _attributed_output_schema(
+    properties: Optional[Dict[str, Any]] = None,
+    required: Optional[List[str]] = None,
+    *,
+    attribution_key: str = "attribution",
+) -> Dict[str, Any]:
+    """Build a permissive schema for API data plus the stable attribution block."""
+    output_properties = dict(properties or {})
+    output_properties[attribution_key] = _ATTRIBUTION_SCHEMA
+    return {
+        "type": "object",
+        "properties": output_properties,
+        "required": [*(required or []), attribution_key],
+        # Calculator payloads evolve independently; describe stable fields while
+        # allowing calculator-specific values that are not known to this server.
+        "additionalProperties": True,
+    }
+
+
+_CALCULATION_OUTPUT_SCHEMA = _attributed_output_schema(
+    {
+        "status": {"type": "string"},
+        "message": {"type": "string"},
+        "calculation_count": {"type": "integer"},
+        "result": {"type": "object", "additionalProperties": True},
+        "breakdown": {"type": "object", "additionalProperties": True},
+        "data": {"type": "object", "additionalProperties": True},
+    },
+    ["status"],
+)
+
+_CALCULATOR_SCHEMA_OUTPUT_SCHEMA = _attributed_output_schema(
+    {
+        "type": {"type": "string"},
+        "properties": {"type": "object", "additionalProperties": True},
+        "required": {"type": "array", "items": {"type": "string"}},
+    },
+    attribution_key="x-irish-tax-hub-attribution",
+)
+
+_CALCULATOR_LIST_OUTPUT_SCHEMA = _attributed_output_schema(
+    {
+        "result": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "description": {"type": "string"},
+                    "url": {"type": "string", "format": "uri"},
+                },
+                "required": ["name", "description", "url"],
+                "additionalProperties": False,
+            },
+        }
+    },
+    ["result"],
+)
+
+_TAX_CONSTANTS_OUTPUT_SCHEMA = _attributed_output_schema(
+    {
+        "status": {"type": "string"},
+        "message": {"type": "string"},
+        "data": {"type": "object", "additionalProperties": True},
+    },
+    ["status", "data"],
+)
+
+_KEY_DATES_OUTPUT_SCHEMA = _attributed_output_schema(
+    {
+        "status": {"type": "string"},
+        "message": {"type": "string"},
+        "year": {"type": "integer"},
+        "data": {"type": "array", "items": {"type": "object"}},
+    },
+    ["status", "year", "data"],
+)
+
+_SEARCH_OUTPUT_SCHEMA = _attributed_output_schema(
+    {
+        "status": {"type": "string"},
+        "results": {"type": "array", "items": {"type": "object"}},
+        "total": {"type": "integer"},
+        "limit": {"type": "integer"},
+        "offset": {"type": "integer"},
+    },
+    ["status", "results"],
+)
+
+_DOCUMENT_TEXT_OUTPUT_SCHEMA = _attributed_output_schema(
+    {
+        "status": {"type": "string", "enum": ["success", "error"]},
+        "filename": {"type": "string"},
+        "text": {"type": "string"},
+        "message": {"type": "string"},
+    },
+    ["status"],
+)
+
+_CATEGORIES_OUTPUT_SCHEMA = _attributed_output_schema(
+    {
+        "status": {"type": "string"},
+        "categories": {"type": "array", "items": {"type": "object"}},
+    },
+    ["status", "categories"],
+)
+
+_CHANGELOG_OUTPUT_SCHEMA = _attributed_output_schema(
+    {
+        "status": {"type": "string"},
+        "entries": {"type": "array", "items": {"type": "object"}},
+        "total": {"type": "integer"},
+        "limit": {"type": "integer"},
+        "offset": {"type": "integer"},
+    },
+    ["status"],
+)
+
+_COUNTRIES_OUTPUT_SCHEMA = _attributed_output_schema(
+    {
+        "status": {"type": "string"},
+        "countries": {"type": "array", "items": {"type": "object"}},
+    },
+    ["status", "countries"],
+)
+
+_CALCULATOR_STATS_OUTPUT_SCHEMA = _attributed_output_schema(
+    {
+        "status": {"type": "string"},
+        "calculator": {"type": "string"},
+        "calculation_count": {"type": "integer", "minimum": 0},
+    },
+    ["status", "calculator", "calculation_count"],
+)
+
 
 def _site_url(path: str) -> str:
     return f"{_SITE_URL}{path}"
@@ -270,6 +437,7 @@ async def _get_client_and_loader() -> tuple[IrishTaxHubClient, OpenAPILoader, Se
 @mcp.tool(
     title="Calculate Irish Tax",
     description=_CALCULATE_TAX_DESC,
+    output_schema=_CALCULATION_OUTPUT_SCHEMA,
     annotations=_READ_ONLY,
 )
 async def calculate_tax(
@@ -310,7 +478,11 @@ async def calculate_tax(
         await client.close()
 
 
-@mcp.tool(title="Get Calculator Schema", annotations=_READ_ONLY)
+@mcp.tool(
+    title="Get Calculator Schema",
+    output_schema=_CALCULATOR_SCHEMA_OUTPUT_SCHEMA,
+    annotations=_READ_ONLY,
+)
 async def get_calculator_schema(
     calculator_name: Annotated[
         CalculatorName, Field(description="The calculator to get the schema for.")
@@ -342,7 +514,11 @@ async def get_calculator_schema(
     )
 
 
-@mcp.tool(title="List Tax Calculators", annotations=_READ_ONLY)
+@mcp.tool(
+    title="List Tax Calculators",
+    output_schema=_CALCULATOR_LIST_OUTPUT_SCHEMA,
+    annotations=_READ_ONLY,
+)
 async def list_calculators() -> List[Dict[str, str]]:
     """List all available Irish tax calculators with their names and descriptions.
 
@@ -363,7 +539,11 @@ async def list_calculators() -> List[Dict[str, str]]:
     )
 
 
-@mcp.tool(title="Get Tax Constants", annotations=_READ_ONLY)
+@mcp.tool(
+    title="Get Tax Constants",
+    output_schema=_TAX_CONSTANTS_OUTPUT_SCHEMA,
+    annotations=_READ_ONLY,
+)
 async def get_tax_constants(
     year: Annotated[
         Optional[int],
@@ -391,7 +571,11 @@ async def get_tax_constants(
         await client.close()
 
 
-@mcp.tool(title="Get Revenue Key Dates", annotations=_READ_ONLY)
+@mcp.tool(
+    title="Get Revenue Key Dates",
+    output_schema=_KEY_DATES_OUTPUT_SCHEMA,
+    annotations=_READ_ONLY,
+)
 async def get_key_dates(
     year: Annotated[
         Optional[int],
@@ -431,7 +615,11 @@ async def get_key_dates(
         await client.close()
 
 
-@mcp.tool(title="Search Revenue Documents", annotations=_READ_ONLY)
+@mcp.tool(
+    title="Search Revenue Documents",
+    output_schema=_SEARCH_OUTPUT_SCHEMA,
+    annotations=_READ_ONLY,
+)
 async def search_revenue_documents(
     query: Annotated[
         str,
@@ -483,7 +671,11 @@ def _normalise_document_identifier(value: str) -> str:
     return identifier
 
 
-@mcp.tool(title="Get Revenue Document Text", annotations=_READ_ONLY)
+@mcp.tool(
+    title="Get Revenue Document Text",
+    output_schema=_DOCUMENT_TEXT_OUTPUT_SCHEMA,
+    annotations=_READ_ONLY,
+)
 async def get_revenue_document_text(
     filename: Annotated[
         str,
@@ -534,7 +726,11 @@ async def get_revenue_document_text(
         await client.close()
 
 
-@mcp.tool(title="List Revenue Document Categories", annotations=_READ_ONLY)
+@mcp.tool(
+    title="List Revenue Document Categories",
+    output_schema=_CATEGORIES_OUTPUT_SCHEMA,
+    annotations=_READ_ONLY,
+)
 async def list_revenue_document_categories() -> Any:
     """List all available categories for Revenue Tax & Duty Manual documents.
 
@@ -552,7 +748,11 @@ async def list_revenue_document_categories() -> Any:
         await client.close()
 
 
-@mcp.tool(title="Get Revenue eBrief Changelog", annotations=_READ_ONLY)
+@mcp.tool(
+    title="Get Revenue eBrief Changelog",
+    output_schema=_CHANGELOG_OUTPUT_SCHEMA,
+    annotations=_READ_ONLY,
+)
 async def get_revenue_ebrief_changelog() -> Any:
     """Get the Revenue eBrief changelog — recent updates to Revenue guidance and Tax & Duty Manuals.
 
@@ -570,7 +770,11 @@ async def get_revenue_ebrief_changelog() -> Any:
         await client.close()
 
 
-@mcp.tool(title="Search Tax Treaties", annotations=_READ_ONLY)
+@mcp.tool(
+    title="Search Tax Treaties",
+    output_schema=_SEARCH_OUTPUT_SCHEMA,
+    annotations=_READ_ONLY,
+)
 async def search_tax_treaties(
     query: Annotated[
         str,
@@ -602,7 +806,11 @@ async def search_tax_treaties(
         await client.close()
 
 
-@mcp.tool(title="Get Tax Treaty Text", annotations=_READ_ONLY)
+@mcp.tool(
+    title="Get Tax Treaty Text",
+    output_schema=_DOCUMENT_TEXT_OUTPUT_SCHEMA,
+    annotations=_READ_ONLY,
+)
 async def get_tax_treaty_text(
     filename: Annotated[
         str,
@@ -651,7 +859,11 @@ async def get_tax_treaty_text(
         await client.close()
 
 
-@mcp.tool(title="List Tax Treaty Countries", annotations=_READ_ONLY)
+@mcp.tool(
+    title="List Tax Treaty Countries",
+    output_schema=_COUNTRIES_OUTPUT_SCHEMA,
+    annotations=_READ_ONLY,
+)
 async def list_tax_treaty_countries() -> Any:
     """List all countries with an Irish double-taxation treaty.
 
@@ -694,7 +906,11 @@ _STATS_SLUG_MAP: Dict[str, str] = {
 }
 
 
-@mcp.tool(title="Get Calculator Stats", annotations=_READ_ONLY)
+@mcp.tool(
+    title="Get Calculator Stats",
+    output_schema=_CALCULATOR_STATS_OUTPUT_SCHEMA,
+    annotations=_READ_ONLY,
+)
 async def get_calculator_stats(
     calculator_name: Annotated[
         CalculatorName, Field(description="The calculator to get stats for.")

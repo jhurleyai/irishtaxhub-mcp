@@ -85,6 +85,22 @@ def test_every_tool_declares_non_destructive_hint():
     assert not bad, f"Tools not declaring destructiveHint=False: {bad}"
 
 
+def test_every_tool_has_an_output_schema():
+    """Submission recommendation: describe every tool's structured result."""
+    missing = [t.name for t in _get_tools() if not t.output_schema]
+    assert not missing, f"Tools missing output schemas: {missing}"
+
+
+def test_every_output_schema_includes_attribution():
+    """Every result schema must advertise its stable attribution payload."""
+    bad = []
+    for tool in _get_tools():
+        properties = tool.output_schema.get("properties", {})
+        if "attribution" not in properties and "x-irish-tax-hub-attribution" not in properties:
+            bad.append(tool.name)
+    assert not bad, f"Tool schemas missing attribution: {bad}"
+
+
 def test_attributed_result_exposes_links_in_structured_content_and_content_blocks():
     from irishtaxhub_mcp.server import _with_attribution
 

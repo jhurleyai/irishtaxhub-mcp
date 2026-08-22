@@ -3,6 +3,7 @@ import asyncio
 from irishtaxhub_mcp.asgi import app
 from irishtaxhub_mcp.middleware import (
     FaviconRedirect,
+    OpenAIAppsChallenge,
     RequireOriginSecret,
     StripTrailingSlash,
 )
@@ -104,10 +105,45 @@ def test_does_not_gate_lookalike_prefix():
     assert state["reached"] is True
 
 
-def test_app_is_wrapped_favicon_then_slash_then_secret():
-    assert isinstance(app, FaviconRedirect)
-    assert isinstance(app.app, StripTrailingSlash)
-    assert isinstance(app.app.app, RequireOriginSecret)
+def test_app_is_wrapped_challenge_then_favicon_then_slash_then_secret():
+    assert isinstance(app, OpenAIAppsChallenge)
+    assert isinstance(app.app, FaviconRedirect)
+    assert isinstance(app.app.app, StripTrailingSlash)
+    assert isinstance(app.app.app.app, RequireOriginSecret)
+
+
+# ---- OpenAIAppsChallenge ----
+
+
+def _run_openai_challenge(path):
+    state = {"reached": False, "status": None, "content_type": None, "body": None}
+
+    async def inner(scope, receive, send):
+        state["reached"] = True
+
+    async def send(message):
+        if message["type"] == "http.response.start":
+            state["status"] = message["status"]
+            state["content_type"] = dict(message["headers"]).get(b"content-type")
+        elif message["type"] == "http.response.body":
+            state["body"] = message["body"]
+
+    asyncio.run(OpenAIAppsChallenge(inner)({"type": "http", "path": path}, None, send))
+    return state
+
+
+def test_openai_challenge_returns_exact_plain_text_token():
+    state = _run_openai_challenge("/.well-known/openai-apps-challenge")
+    assert state["reached"] is False
+    assert state["status"] == 200
+    assert state["content_type"] == b"text/plain; charset=utf-8"
+    assert state["body"] == b"pNWAYlmjufGPF-GYUTSFqqZh0WSR5NSz5nEwqu0miU8"
+
+
+def test_openai_challenge_middleware_passes_other_paths_through():
+    state = _run_openai_challenge("/mcp")
+    assert state["reached"] is True
+    assert state["status"] is None
 
 
 # ---- FaviconRedirect ----

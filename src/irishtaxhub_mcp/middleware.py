@@ -18,6 +18,40 @@ _VERIFY_HEADER = b"x-origin-verify"
 _FAVICON_PATH = "/favicon.ico"
 _FAVICON_TARGET = b"https://www.irishtaxhub.ie/favicon.ico"
 
+# OpenAI requires this exact, public plain-text response to verify control of
+# the MCP server domain during plugin submission. The token is intentionally
+# public: OpenAI retrieves it from the well-known URL below.
+_OPENAI_CHALLENGE_PATH = "/.well-known/openai-apps-challenge"
+_OPENAI_CHALLENGE_TOKEN = b"pNWAYlmjufGPF-GYUTSFqqZh0WSR5NSz5nEwqu0miU8"
+
+
+class OpenAIAppsChallenge:
+    """Serve OpenAI's domain-verification token as an exact plain-text body."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and scope.get("path") == _OPENAI_CHALLENGE_PATH:
+            await send(
+                {
+                    "type": "http.response.start",
+                    "status": 200,
+                    "headers": [
+                        (b"content-type", b"text/plain; charset=utf-8"),
+                        (b"cache-control", b"public, max-age=300"),
+                    ],
+                }
+            )
+            await send(
+                {
+                    "type": "http.response.body",
+                    "body": _OPENAI_CHALLENGE_TOKEN,
+                }
+            )
+            return
+        await self.app(scope, receive, send)
+
 
 class FaviconRedirect:
     """Redirect ``/favicon.ico`` to the main site favicon (302)."""
