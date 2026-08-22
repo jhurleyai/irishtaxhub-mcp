@@ -66,13 +66,13 @@ def test_every_tool_declares_read_only_hint():
 
 
 def test_every_tool_declares_open_world_hint():
-    """Every tool reaches the external Irish Tax Hub API, so each sets openWorldHint=True."""
+    """Read-only tools do not change public or third-party state."""
     bad = [
         t.name
         for t in _get_tools()
-        if t.annotations is None or t.annotations.openWorldHint is not True
+        if t.annotations is None or t.annotations.openWorldHint is not False
     ]
-    assert not bad, f"Tools not declaring openWorldHint=True: {bad}"
+    assert not bad, f"Tools not declaring openWorldHint=False: {bad}"
 
 
 def test_every_tool_declares_non_destructive_hint():

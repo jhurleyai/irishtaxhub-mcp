@@ -20,7 +20,7 @@ mcp = FastMCP("irishtaxhub-mcp")
 # Connector-directory review requires every hint to be explicit.
 _READ_ONLY = {
     "readOnlyHint": True,
-    "openWorldHint": True,
+    "openWorldHint": False,
     "destructiveHint": False,
 }
 
