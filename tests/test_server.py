@@ -1,6 +1,7 @@
 import asyncio
 
 import pytest
+from fastmcp.tools import ToolResult
 
 from irishtaxhub_mcp.server import _normalise_document_identifier, mcp
 
@@ -72,6 +73,38 @@ def test_every_tool_declares_open_world_hint():
         if t.annotations is None or t.annotations.openWorldHint is not True
     ]
     assert not bad, f"Tools not declaring openWorldHint=True: {bad}"
+
+
+def test_every_tool_declares_non_destructive_hint():
+    """Every read-only tool must explicitly declare destructiveHint=False."""
+    bad = [
+        t.name
+        for t in _get_tools()
+        if t.annotations is None or t.annotations.destructiveHint is not False
+    ]
+    assert not bad, f"Tools not declaring destructiveHint=False: {bad}"
+
+
+def test_attributed_result_exposes_links_in_structured_content_and_content_blocks():
+    from irishtaxhub_mcp.server import _with_attribution
+
+    result = _with_attribution(
+        {"status": "success", "data": {"year": 2026}},
+        source_url="https://www.irishtaxhub.ie/irish-income-tax-hub",
+        relevant_url="https://www.irishtaxhub.ie/calculators/salary-after-tax",
+    )
+
+    assert isinstance(result, ToolResult)
+    attribution = result.structured_content["attribution"]
+    assert attribution["provider"] == "Irish Tax Hub"
+    assert attribution["source_url"].startswith("https://www.irishtaxhub.ie/")
+    assert attribution["methodology_url"] == "https://prod.aws.irishtaxhub.ie/docs"
+    assert attribution["last_updated"]
+    assert attribution["action"] == {
+        "label": "Continue on Irish Tax Hub",
+        "url": "https://www.irishtaxhub.ie/calculators/salary-after-tax",
+    }
+    assert any(block.type == "resource_link" for block in result.content)
 
 
 def test_mcp_http_app():
