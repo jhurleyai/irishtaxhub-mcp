@@ -64,8 +64,15 @@ export IRISHTAXHUB_OPENAPI="https://prod.aws.irishtaxhub.ie/openapi.json"
 poetry run irishtaxhub-mcp
 ```
 
-For a locally running API, the defaults are sufficient. You can also run the module or FastMCP
-entrypoint directly:
+For a locally running API, set the base URL explicitly — the built-in default is
+`http://localhost:5000`, but `irishtaxhubapi` serves on port 8000:
+
+```bash
+export IRISHTAXHUB_BASE_URL="http://127.0.0.1:8000"
+poetry run irishtaxhub-mcp
+```
+
+You can also run the module or FastMCP entrypoint directly:
 
 ```bash
 python -m irishtaxhub_mcp.server
