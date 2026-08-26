@@ -192,6 +192,21 @@ create_permissions_policy() {
                 "cloudfront:ListTagsForResource"
             ],
             "Resource": "*"
+        },
+        {
+            "Sid": "WAFv2Management",
+            "Effect": "Allow",
+            "Action": [
+                "wafv2:CreateWebACL",
+                "wafv2:GetWebACL",
+                "wafv2:UpdateWebACL",
+                "wafv2:DeleteWebACL",
+                "wafv2:ListWebACLs",
+                "wafv2:TagResource",
+                "wafv2:UntagResource",
+                "wafv2:ListTagsForResource"
+            ],
+            "Resource": "*"
         }
     ]
 }

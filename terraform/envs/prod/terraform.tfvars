@@ -20,3 +20,12 @@ prod_domain = ""
 lambda_web_adapter_layer_arn = "arn:aws:lambda:eu-west-1:753240598075:layer:LambdaAdapterLayerX86:25"
 create_streaming_domain      = true
 streaming_domain_name        = "mcp-prod.aws.irishtaxhub.ie"
+
+# Streaming abuse protection for the public, anonymous MCP endpoint.
+# Roll out in COUNT mode first (block_mode = false): observe WAF CloudWatch
+# metrics + sampled requests against real traffic, tune the rate limit, then
+# set streaming_waf_block_mode = true to enforce.
+enable_streaming_waf           = true
+streaming_waf_block_mode       = false
+streaming_rate_limit_per_5min  = 600
+streaming_reserved_concurrency = 100

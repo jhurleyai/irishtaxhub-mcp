@@ -1,6 +1,7 @@
 import asyncio
 
 import pytest
+from fastmcp.tools import ToolResult
 
 from irishtaxhub_mcp.server import _normalise_document_identifier, mcp
 
@@ -14,7 +15,9 @@ EXPECTED_TOOLS = [
     "get_revenue_document_text",
     "list_revenue_document_categories",
     "get_revenue_ebrief_changelog",
-    "generate_net_income_summary",
+    "search_tax_treaties",
+    "get_tax_treaty_text",
+    "list_tax_treaty_countries",
     "get_calculator_stats",
 ]
 
@@ -37,6 +40,87 @@ def test_mcp_server_tool_count():
     assert len(tool_names) == len(
         EXPECTED_TOOLS
     ), f"Expected {len(EXPECTED_TOOLS)} tools, got {len(tool_names)}: {tool_names}"
+
+
+def _get_tools():
+    return asyncio.run(mcp.list_tools())
+
+
+def test_every_tool_has_a_title():
+    """Directory requirement: every tool must expose a human-readable title."""
+    missing = [t.name for t in _get_tools() if not t.title]
+    assert not missing, f"Tools missing a title: {missing}"
+
+
+def test_every_tool_declares_read_only_hint():
+    """Directory requirement: every tool must declare readOnlyHint/destructiveHint.
+
+    All tools in this server are read-only, so each must set readOnlyHint=True.
+    """
+    bad = [
+        t.name
+        for t in _get_tools()
+        if t.annotations is None or t.annotations.readOnlyHint is not True
+    ]
+    assert not bad, f"Tools not declaring readOnlyHint=True: {bad}"
+
+
+def test_every_tool_declares_open_world_hint():
+    """Read-only tools do not change public or third-party state."""
+    bad = [
+        t.name
+        for t in _get_tools()
+        if t.annotations is None or t.annotations.openWorldHint is not False
+    ]
+    assert not bad, f"Tools not declaring openWorldHint=False: {bad}"
+
+
+def test_every_tool_declares_non_destructive_hint():
+    """Every read-only tool must explicitly declare destructiveHint=False."""
+    bad = [
+        t.name
+        for t in _get_tools()
+        if t.annotations is None or t.annotations.destructiveHint is not False
+    ]
+    assert not bad, f"Tools not declaring destructiveHint=False: {bad}"
+
+
+def test_every_tool_has_an_output_schema():
+    """Submission recommendation: describe every tool's structured result."""
+    missing = [t.name for t in _get_tools() if not t.output_schema]
+    assert not missing, f"Tools missing output schemas: {missing}"
+
+
+def test_every_output_schema_includes_attribution():
+    """Every result schema must advertise its stable attribution payload."""
+    bad = []
+    for tool in _get_tools():
+        properties = tool.output_schema.get("properties", {})
+        if "attribution" not in properties and "x-irish-tax-hub-attribution" not in properties:
+            bad.append(tool.name)
+    assert not bad, f"Tool schemas missing attribution: {bad}"
+
+
+def test_attributed_result_exposes_links_in_structured_content_and_content_blocks():
+    from irishtaxhub_mcp.server import _with_attribution
+
+    result = _with_attribution(
+        {"status": "success", "data": {"year": 2026}},
+        source_url="https://www.irishtaxhub.ie/irish-income-tax-hub",
+        relevant_url="https://www.irishtaxhub.ie/calculators/salary-after-tax",
+    )
+
+    assert isinstance(result, ToolResult)
+    attribution = result.structured_content["attribution"]
+    assert attribution["provider"] == "Irish Tax Hub"
+    assert attribution["source_url"].startswith("https://www.irishtaxhub.ie/")
+    assert attribution["methodology_url"] == "https://prod.aws.irishtaxhub.ie/docs"
+    assert attribution["last_updated"]
+    assert attribution["action"] == {
+        "label": "Continue on Irish Tax Hub",
+        "url": "https://www.irishtaxhub.ie/calculators/salary-after-tax",
+    }
+    assert any(block.type == "resource_link" for block in result.content)
 
 
 def test_mcp_http_app():

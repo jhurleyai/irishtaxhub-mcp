@@ -53,18 +53,20 @@ CI runs black, isort, flake8, and pytest on every PR. All must pass.
 
 ## MCP tools
 
-The server exposes 11 domain-specific tools. All calculator tools validate inputs against the OpenAPI schema before calling the API.
+The server exposes 13 domain-specific tools. All calculator tools validate inputs against the OpenAPI schema before calling the API.
 
 | Tool | Purpose |
 |------|---------|
 | `calculate_tax` | Run any of 20 tax calculators |
 | `get_calculator_schema` | Get input schema for a calculator |
 | `list_calculators` | List calculators with descriptions |
+| `get_calculator_stats` | Calculator usage stats |
 | `get_tax_constants` | Tax bands, rates, credits |
 | `get_key_dates` | Revenue deadlines |
 | `search_revenue_documents` | Search TDMs by keyword |
 | `get_revenue_document_text` | Read a specific TDM |
 | `list_revenue_document_categories` | List TDM categories |
 | `get_revenue_ebrief_changelog` | Recent Revenue changes |
-| `generate_net_income_summary` | AI tax summary |
-| `get_calculator_stats` | Calculator usage stats |
+| `search_tax_treaties` | Search double-taxation treaties |
+| `get_tax_treaty_text` | Read a specific treaty document |
+| `list_tax_treaty_countries` | List treaty countries |

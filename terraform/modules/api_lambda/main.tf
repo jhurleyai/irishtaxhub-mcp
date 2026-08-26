@@ -5,11 +5,24 @@ terraform {
       version               = ">= 5.0"
       configuration_aliases = [aws.us_east_1]
     }
+    random = {
+      source  = "hashicorp/random"
+      version = ">= 3.0"
+    }
   }
 }
 
 locals {
   full_name = "${var.name}-${var.environment}"
+}
+
+# Shared secret used to lock the Lambda origins to CloudFront. CloudFront injects
+# it as the X-Origin-Verify header; the app rejects /mcp requests without it.
+# Lives in Terraform state + CloudFront/Lambda config — an infrastructure secret,
+# not user auth. Alphanumeric (special = false) to stay header-safe.
+resource "random_password" "origin_verify" {
+  length  = 48
+  special = false
 }
 
 resource "aws_iam_role" "lambda_role" {
@@ -56,7 +69,8 @@ resource "aws_lambda_function" "this" {
     variables = merge(
       var.env_vars,
       {
-        API_GATEWAY_STAGE = coalesce(var.api_stage_name, var.environment)
+        API_GATEWAY_STAGE    = coalesce(var.api_stage_name, var.environment)
+        ORIGIN_VERIFY_SECRET = random_password.origin_verify.result
       }
     )
   }
@@ -157,6 +171,12 @@ resource "aws_lambda_function" "streaming" {
   memory_size = var.lambda_memory_mb
   timeout     = var.lambda_timeout_seconds
 
+  # Global concurrency cap = cost circuit-breaker. Also closes the gap WAF
+  # can't see: a single long-lived SSE connection is one request, invisible
+  # to the per-IP rate rule, but still bounded by total concurrent invocations.
+  # -1 = unreserved (no cap).
+  reserved_concurrent_executions = var.streaming_reserved_concurrency
+
   layers = var.lambda_web_adapter_layer_arn == "" ? [] : [var.lambda_web_adapter_layer_arn]
 
   environment {
@@ -166,6 +186,7 @@ resource "aws_lambda_function" "streaming" {
         AWS_LAMBDA_EXEC_WRAPPER = var.lambda_web_adapter_layer_arn == "" ? "/var/task/bootstrap" : "/opt/bootstrap"
         AWS_LWA_INVOKE_MODE     = "response_stream"
         AWS_LWA_PORT            = "8080"
+        ORIGIN_VERIFY_SECRET    = random_password.origin_verify.result
       }
     )
   }
@@ -182,7 +203,11 @@ resource "aws_cloudwatch_log_group" "streaming_lambda" {
 }
 
 resource "aws_lambda_function_url" "streaming" {
-  function_name      = aws_lambda_function.streaming.function_name
+  function_name = aws_lambda_function.streaming.function_name
+  # NONE (not AWS_IAM) because CloudFront OAC can't SigV4-sign POST bodies to a
+  # Lambda Function URL, and MCP is POST-based. The origin is instead locked with
+  # the X-Origin-Verify shared-secret header (injected by CloudFront, enforced by
+  # the app) — see the distribution's custom_header and the app middleware.
   authorization_type = "NONE"
   invoke_mode        = "RESPONSE_STREAM"
 
@@ -202,6 +227,27 @@ locals {
 }
 
 ############################
+# Streaming WAF (rate limiting for the public MCP endpoint)
+############################
+
+# CLOUDFRONT-scope WAF must live in us-east-1; map that provider as the
+# module's default. Instantiated before streaming_domain so its ARN is
+# available to attach to the distribution.
+module "streaming_waf" {
+  source = "../streaming_waf"
+
+  providers = {
+    aws = aws.us_east_1
+  }
+
+  enable              = var.enable_streaming_waf
+  block_mode          = var.streaming_waf_block_mode
+  rate_limit_per_5min = var.streaming_rate_limit_per_5min
+  name                = local.full_name
+  tags                = var.tags
+}
+
+############################
 # Streaming Custom Domain (CloudFront)
 ############################
 
@@ -217,5 +263,7 @@ module "streaming_domain" {
   domain_name                  = var.streaming_domain_name
   certificate_validated        = var.streaming_certificate_validated
   lambda_function_url_hostname = local.lambda_url_hostname
+  web_acl_arn                  = module.streaming_waf.web_acl_arn
+  origin_verify_secret         = random_password.origin_verify.result
   tags                         = var.tags
 }

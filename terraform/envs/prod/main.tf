@@ -55,6 +55,12 @@ module "api_lambda" {
   create_streaming_domain         = var.create_streaming_domain
   streaming_domain_name           = var.streaming_domain_name
   streaming_certificate_validated = var.streaming_certificate_validated
+
+  # Streaming abuse protection (public, anonymous endpoint)
+  streaming_reserved_concurrency = var.streaming_reserved_concurrency
+  enable_streaming_waf           = var.enable_streaming_waf
+  streaming_waf_block_mode       = var.streaming_waf_block_mode
+  streaming_rate_limit_per_5min  = var.streaming_rate_limit_per_5min
 }
 
 output "prod_api_url" {
@@ -71,7 +77,7 @@ output "prod_dns_setup" {
 
 output "prod_mcp_function_url" {
   value       = module.api_lambda.lambda_function_url
-  description = "Lambda Function URL for MCP (use this directly or via custom domain)"
+  description = "Internal Lambda Function URL (origin-locked behind CloudFront via the X-Origin-Verify secret). Not a client endpoint — direct use returns 403. Clients use the streaming custom domain."
 }
 
 output "prod_streaming_custom_domain" {

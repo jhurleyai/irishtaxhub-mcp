@@ -23,9 +23,10 @@ resource "aws_acm_certificate" "streaming_cert" {
 
 # CloudFront only created after cert is validated
 resource "aws_cloudfront_distribution" "streaming" {
-  count   = var.create_domain && var.certificate_validated ? 1 : 0
-  enabled = true
-  aliases = [var.domain_name]
+  count      = var.create_domain && var.certificate_validated ? 1 : 0
+  enabled    = true
+  aliases    = [var.domain_name]
+  web_acl_id = var.web_acl_arn
 
   origin {
     domain_name = var.lambda_function_url_hostname
@@ -36,6 +37,18 @@ resource "aws_cloudfront_distribution" "streaming" {
       https_port             = 443
       origin_protocol_policy = "https-only"
       origin_ssl_protocols   = ["TLSv1.2"]
+    }
+
+    # Shared-secret origin lock: CloudFront injects this header on every origin
+    # request. The Lambda app rejects /mcp requests without it, so the raw
+    # Function URL (and the API Gateway path) can't be used to bypass the edge.
+    # OAC/SigV4 can't be used here because CloudFront can't sign POST bodies to
+    # Lambda Function URLs, and MCP is POST-based. CloudFront origin custom
+    # headers override any viewer-supplied header of the same name, so it can't
+    # be spoofed through the edge.
+    custom_header {
+      name  = "X-Origin-Verify"
+      value = var.origin_verify_secret
     }
   }
 

@@ -30,15 +30,6 @@ class IrishTaxHubClient:
     async def close(self) -> None:
         await self._client.aclose()
 
-    async def post_calculator(self, calculator: str, payload: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        POST /v1/tax/calculators/{calculator}
-        """
-        url = f"/v1/tax/calculators/{calculator}"
-        resp = await self._client.post(url, json=payload)
-        resp.raise_for_status()
-        return resp.json()
-
     async def request(
         self,
         method: str,

@@ -21,6 +21,19 @@ variable "certificate_validated" {
   default     = false
 }
 
+variable "web_acl_arn" {
+  description = "ARN of a WAFv2 (CLOUDFRONT scope) Web ACL to attach to the distribution. Null = no WAF."
+  type        = string
+  default     = null
+}
+
+variable "origin_verify_secret" {
+  description = "Shared secret CloudFront injects as the X-Origin-Verify header so the Lambda app can reject requests that didn't come through the edge."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "tags" {
   description = "Tags to apply to resources"
   type        = map(string)

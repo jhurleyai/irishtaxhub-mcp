@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import json
+from datetime import datetime, timezone
 from typing import Annotated, Any, Dict, List, Literal, Optional
 
 from fastmcp import FastMCP
+from fastmcp.tools import ToolResult
+from mcp.types import ResourceLink, TextContent
 from pydantic import Field
 
 from .client import IrishTaxHubClient
@@ -10,6 +14,247 @@ from .openapi import OpenAPILoader, get_request_body_schema, validate_body
 from .settings import Settings
 
 mcp = FastMCP("irishtaxhub-mcp")
+
+# Every tool in this server is read-only and reaches the external Irish Tax Hub
+# API (which fronts Revenue data), so all tools share these MCP annotations.
+# Connector-directory review requires every hint to be explicit.
+_READ_ONLY = {
+    "readOnlyHint": True,
+    "openWorldHint": False,
+    "destructiveHint": False,
+}
+
+_SITE_URL = "https://www.irishtaxhub.ie"
+_API_DOCS_URL = "https://prod.aws.irishtaxhub.ie/docs"
+
+_ATTRIBUTION_SCHEMA: Dict[str, Any] = {
+    "type": "object",
+    "description": "Source attribution and a link back to Irish Tax Hub.",
+    "properties": {
+        "provider": {"type": "string"},
+        "source_url": {"type": "string", "format": "uri"},
+        "methodology_url": {"type": "string", "format": "uri"},
+        "last_updated": {"type": "string", "format": "date"},
+        "last_updated_note": {"type": "string"},
+        "relevant_url": {"type": "string", "format": "uri"},
+        "action": {
+            "type": "object",
+            "properties": {
+                "label": {"type": "string"},
+                "url": {"type": "string", "format": "uri"},
+            },
+            "required": ["label", "url"],
+            "additionalProperties": False,
+        },
+    },
+    "required": [
+        "provider",
+        "source_url",
+        "methodology_url",
+        "last_updated",
+        "relevant_url",
+        "action",
+    ],
+    "additionalProperties": True,
+}
+
+
+def _attributed_output_schema(
+    properties: Optional[Dict[str, Any]] = None,
+    required: Optional[List[str]] = None,
+    *,
+    attribution_key: str = "attribution",
+) -> Dict[str, Any]:
+    """Build a permissive schema for API data plus the stable attribution block."""
+    output_properties = dict(properties or {})
+    output_properties[attribution_key] = _ATTRIBUTION_SCHEMA
+    return {
+        "type": "object",
+        "properties": output_properties,
+        "required": [*(required or []), attribution_key],
+        # Calculator payloads evolve independently; describe stable fields while
+        # allowing calculator-specific values that are not known to this server.
+        "additionalProperties": True,
+    }
+
+
+_CALCULATION_OUTPUT_SCHEMA = _attributed_output_schema(
+    {
+        "status": {"type": "string"},
+        "message": {"type": "string"},
+        "calculation_count": {"type": "integer"},
+        "result": {"type": "object", "additionalProperties": True},
+        "breakdown": {"type": "object", "additionalProperties": True},
+        "data": {"type": "object", "additionalProperties": True},
+    },
+    ["status"],
+)
+
+_CALCULATOR_SCHEMA_OUTPUT_SCHEMA = _attributed_output_schema(
+    {
+        "type": {"type": "string"},
+        "properties": {"type": "object", "additionalProperties": True},
+        "required": {"type": "array", "items": {"type": "string"}},
+    },
+    attribution_key="x-irish-tax-hub-attribution",
+)
+
+_CALCULATOR_LIST_OUTPUT_SCHEMA = _attributed_output_schema(
+    {
+        "result": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "description": {"type": "string"},
+                    "url": {"type": "string", "format": "uri"},
+                },
+                "required": ["name", "description", "url"],
+                "additionalProperties": False,
+            },
+        }
+    },
+    ["result"],
+)
+
+_TAX_CONSTANTS_OUTPUT_SCHEMA = _attributed_output_schema(
+    {
+        "status": {"type": "string"},
+        "message": {"type": "string"},
+        "data": {"type": "object", "additionalProperties": True},
+    },
+    ["status", "data"],
+)
+
+_KEY_DATES_OUTPUT_SCHEMA = _attributed_output_schema(
+    {
+        "status": {"type": "string"},
+        "message": {"type": "string"},
+        "year": {"type": "integer"},
+        "data": {"type": "array", "items": {"type": "object"}},
+    },
+    ["status", "year", "data"],
+)
+
+_SEARCH_OUTPUT_SCHEMA = _attributed_output_schema(
+    {
+        "status": {"type": "string"},
+        "results": {"type": "array", "items": {"type": "object"}},
+        "total": {"type": "integer"},
+        "limit": {"type": "integer"},
+        "offset": {"type": "integer"},
+    },
+    ["status", "results"],
+)
+
+_DOCUMENT_TEXT_OUTPUT_SCHEMA = _attributed_output_schema(
+    {
+        "status": {"type": "string", "enum": ["success", "error"]},
+        "filename": {"type": "string"},
+        "text": {"type": "string"},
+        "message": {"type": "string"},
+    },
+    ["status"],
+)
+
+_CATEGORIES_OUTPUT_SCHEMA = _attributed_output_schema(
+    {
+        "status": {"type": "string"},
+        "categories": {"type": "array", "items": {"type": "object"}},
+    },
+    ["status", "categories"],
+)
+
+_CHANGELOG_OUTPUT_SCHEMA = _attributed_output_schema(
+    {
+        "status": {"type": "string"},
+        "entries": {"type": "array", "items": {"type": "object"}},
+        "total": {"type": "integer"},
+        "limit": {"type": "integer"},
+        "offset": {"type": "integer"},
+    },
+    ["status"],
+)
+
+_COUNTRIES_OUTPUT_SCHEMA = _attributed_output_schema(
+    {
+        "status": {"type": "string"},
+        "countries": {"type": "array", "items": {"type": "object"}},
+    },
+    ["status", "countries"],
+)
+
+_CALCULATOR_STATS_OUTPUT_SCHEMA = _attributed_output_schema(
+    {
+        "status": {"type": "string"},
+        "calculator": {"type": "string"},
+        "calculation_count": {"type": "integer", "minimum": 0},
+    },
+    ["status", "calculator", "calculation_count"],
+)
+
+
+def _site_url(path: str) -> str:
+    return f"{_SITE_URL}{path}"
+
+
+def _calculator_url(calculator_name: str) -> str:
+    slug = _STATS_SLUG_MAP.get(calculator_name, calculator_name)
+    return _site_url(f"/calculators/{slug}")
+
+
+def _with_attribution(
+    result: Any,
+    *,
+    source_url: str,
+    relevant_url: Optional[str] = None,
+    schema_result: bool = False,
+) -> ToolResult:
+    """Add visible attribution without hiding or replacing the upstream result."""
+    continue_url = relevant_url or source_url
+    attribution = {
+        "provider": "Irish Tax Hub",
+        "source_url": source_url,
+        "methodology_url": _API_DOCS_URL,
+        "last_updated": datetime.now(timezone.utc).date().isoformat(),
+        "last_updated_note": "Live data retrieved from Irish Tax Hub on this date.",
+        "relevant_url": continue_url,
+        "action": {
+            "label": "Continue on Irish Tax Hub",
+            "url": continue_url,
+        },
+    }
+
+    if isinstance(result, dict):
+        structured_content = dict(result)
+    else:
+        # FastMCP already wraps list return values in a `result` object. Keep
+        # that stable shape when supplying a custom ToolResult.
+        structured_content = {"result": result}
+
+    attribution_key = "x-irish-tax-hub-attribution" if schema_result else "attribution"
+    structured_content[attribution_key] = attribution
+
+    return ToolResult(
+        content=[
+            TextContent(
+                type="text",
+                text=json.dumps(structured_content, ensure_ascii=False, default=str),
+            ),
+            ResourceLink(
+                type="resource_link",
+                name="continue-on-irish-tax-hub",
+                title="Continue on Irish Tax Hub",
+                uri=continue_url,
+                description="Open the relevant Irish Tax Hub calculator or guide.",
+                mimeType="text/html",
+            ),
+        ],
+        structured_content=structured_content,
+        meta={"attribution": attribution},
+    )
+
 
 # All available calculator names with their API paths
 CALCULATORS: Dict[str, Dict[str, str]] = {
@@ -149,34 +394,34 @@ Common examples:
 
 base (income tax): {{"marital_status": "single", \
 "employment_income": {{"income": 75000, "period": "annual"}}, \
-"year": 2025}}
+"year": 2026}}
 
 marital_status options: single, widow, \
 married_one_income, married_two_income
 
 refund: {{"marital_status": "single", \
 "employment_income": {{"income": 50000, "tax_paid": 18000}}, \
-"year": 2025}}
+"year": 2026}}
 
 capital-gains: {{"sale_price": 400000, \
 "purchase_price": 250000, "purchase_date": "2018-03-15", \
-"sale_date": "2025-06-01", "year": 2025}}
+"sale_date": "2026-06-01", "year": 2026}}
 
 mortgage: {{"home_price": 400000, "deposit": 40000, \
 "loan_term_years": 30, "interest_rate": 4.0}}
 
 work-from-home-expense: {{"electricity_costs": 1200, \
 "heating_costs": 800, "internet_costs": 600, \
-"tax_year": 2025, "total_earnings": 75000, \
+"tax_year": 2026, "total_earnings": 75000, \
 "days_working_from_home": 200}}
 
-avc: {{"age": 45, "gross_earnings": 100000, "year": 2025}}
+avc: {{"age": 45, "gross_earnings": 100000, "year": 2026}}
 
 share-options: {{"share_option_price": 10, \
 "sale_price": 50, "number_of_units": 1000}}
 
 redundancy-tax: {{"employment_start_date": "2010-01-01", \
-"employment_end_date": "2025-06-01", "gross_weekly_pay": 1500}}
+"employment_end_date": "2026-06-01", "gross_weekly_pay": 1500}}
 
 mortgage-affordability: {{"buyer_type": "first_time_buyer", \
 "gross_annual_income_1": 75000, "savings": 50000}}"""
@@ -189,7 +434,12 @@ async def _get_client_and_loader() -> tuple[IrishTaxHubClient, OpenAPILoader, Se
     return client, loader, settings
 
 
-@mcp.tool(description=_CALCULATE_TAX_DESC)
+@mcp.tool(
+    title="Calculate Irish Tax",
+    description=_CALCULATE_TAX_DESC,
+    output_schema=_CALCULATION_OUTPUT_SCHEMA,
+    annotations=_READ_ONLY,
+)
 async def calculate_tax(
     calculator_name: Annotated[
         CalculatorName,
@@ -217,12 +467,22 @@ async def calculate_tax(
     try:
         spec = await loader.load()
         validate_body(spec, calc["path"], "post", inputs)
-        return await client.request("POST", calc["path"], json_body=inputs)
+        result = await client.request("POST", calc["path"], json_body=inputs)
+        calculator_url = _calculator_url(calculator_name)
+        return _with_attribution(
+            result,
+            source_url=calculator_url,
+            relevant_url=calculator_url,
+        )
     finally:
         await client.close()
 
 
-@mcp.tool
+@mcp.tool(
+    title="Get Calculator Schema",
+    output_schema=_CALCULATOR_SCHEMA_OUTPUT_SCHEMA,
+    annotations=_READ_ONLY,
+)
 async def get_calculator_schema(
     calculator_name: Annotated[
         CalculatorName, Field(description="The calculator to get the schema for.")
@@ -245,19 +505,45 @@ async def get_calculator_schema(
     loader = OpenAPILoader(settings.base_url, settings.openapi, settings.timeout)
     spec = await loader.load()
     schema = get_request_body_schema(spec, calc["path"], "post")
-    return schema or {}
+    calculator_url = _calculator_url(calculator_name)
+    return _with_attribution(
+        schema or {},
+        source_url=calculator_url,
+        relevant_url=calculator_url,
+        schema_result=True,
+    )
 
 
-@mcp.tool
+@mcp.tool(
+    title="List Tax Calculators",
+    output_schema=_CALCULATOR_LIST_OUTPUT_SCHEMA,
+    annotations=_READ_ONLY,
+)
 async def list_calculators() -> List[Dict[str, str]]:
     """List all available Irish tax calculators with their names and descriptions.
 
     Returns a list of calculators that can be used with the `calculate_tax` tool.
     """
-    return [{"name": name, "description": info["summary"]} for name, info in CALCULATORS.items()]
+    result = [
+        {
+            "name": name,
+            "description": info["summary"],
+            "url": _calculator_url(name),
+        }
+        for name, info in CALCULATORS.items()
+    ]
+    return _with_attribution(
+        result,
+        source_url=_site_url("/calculators"),
+        relevant_url=_site_url("/calculators"),
+    )
 
 
-@mcp.tool
+@mcp.tool(
+    title="Get Tax Constants",
+    output_schema=_TAX_CONSTANTS_OUTPUT_SCHEMA,
+    annotations=_READ_ONLY,
+)
 async def get_tax_constants(
     year: Annotated[
         Optional[int],
@@ -275,12 +561,21 @@ async def get_tax_constants(
         params = {}
         if year is not None:
             params["year"] = year
-        return await client.request("GET", "/v1/tax/constants", params=params or None)
+        result = await client.request("GET", "/v1/tax/constants", params=params or None)
+        return _with_attribution(
+            result,
+            source_url=_site_url("/irish-income-tax-hub"),
+            relevant_url=_site_url("/calculators/salary-after-tax"),
+        )
     finally:
         await client.close()
 
 
-@mcp.tool
+@mcp.tool(
+    title="Get Revenue Key Dates",
+    output_schema=_KEY_DATES_OUTPUT_SCHEMA,
+    annotations=_READ_ONLY,
+)
 async def get_key_dates(
     year: Annotated[
         Optional[int],
@@ -310,12 +605,21 @@ async def get_key_dates(
             body["month"] = month
         if tax_type is not None:
             body["tax_type"] = tax_type
-        return await client.request("POST", "/v1/tax/key-dates", json_body=body or None)
+        result = await client.request("POST", "/v1/tax/key-dates", json_body=body or None)
+        return _with_attribution(
+            result,
+            source_url=_site_url("/tax-calendar"),
+            relevant_url=_site_url("/tax-calendar"),
+        )
     finally:
         await client.close()
 
 
-@mcp.tool
+@mcp.tool(
+    title="Search Revenue Documents",
+    output_schema=_SEARCH_OUTPUT_SCHEMA,
+    annotations=_READ_ONLY,
+)
 async def search_revenue_documents(
     query: Annotated[
         str,
@@ -342,7 +646,12 @@ async def search_revenue_documents(
         params: Dict[str, Any] = {"q": query, "limit": limit}
         if category:
             params["category"] = category
-        return await client.request("GET", "/v1/revenue/documents", params=params)
+        result = await client.request("GET", "/v1/revenue/documents", params=params)
+        return _with_attribution(
+            result,
+            source_url=_site_url("/revenue-documents"),
+            relevant_url=_site_url("/revenue-documents"),
+        )
     finally:
         await client.close()
 
@@ -362,7 +671,11 @@ def _normalise_document_identifier(value: str) -> str:
     return identifier
 
 
-@mcp.tool
+@mcp.tool(
+    title="Get Revenue Document Text",
+    output_schema=_DOCUMENT_TEXT_OUTPUT_SCHEMA,
+    annotations=_READ_ONLY,
+)
 async def get_revenue_document_text(
     filename: Annotated[
         str,
@@ -388,23 +701,36 @@ async def get_revenue_document_text(
 
     client, loader, settings = await _get_client_and_loader()
     try:
-        return await client.request("GET", f"/v1/revenue/documents/text/{identifier}")
+        result = await client.request("GET", f"/v1/revenue/documents/text/{identifier}")
+        return _with_attribution(
+            result,
+            source_url=_site_url("/revenue-documents"),
+            relevant_url=_site_url("/revenue-documents"),
+        )
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 404:
-            return {
-                "status": "error",
-                "message": (
-                    f"Full text not available for '{identifier}'. "
-                    "Use the search result metadata (title, description, "
-                    "keywords, url) instead."
-                ),
-            }
+            return _with_attribution(
+                {
+                    "status": "error",
+                    "message": (
+                        f"Full text not available for '{identifier}'. "
+                        "Use the search result metadata (title, description, "
+                        "keywords, url) instead."
+                    ),
+                },
+                source_url=_site_url("/revenue-documents"),
+                relevant_url=_site_url("/revenue-documents"),
+            )
         raise
     finally:
         await client.close()
 
 
-@mcp.tool
+@mcp.tool(
+    title="List Revenue Document Categories",
+    output_schema=_CATEGORIES_OUTPUT_SCHEMA,
+    annotations=_READ_ONLY,
+)
 async def list_revenue_document_categories() -> Any:
     """List all available categories for Revenue Tax & Duty Manual documents.
 
@@ -412,12 +738,21 @@ async def list_revenue_document_categories() -> Any:
     """
     client, loader, settings = await _get_client_and_loader()
     try:
-        return await client.request("GET", "/v1/revenue/documents/categories")
+        result = await client.request("GET", "/v1/revenue/documents/categories")
+        return _with_attribution(
+            result,
+            source_url=_site_url("/revenue-documents"),
+            relevant_url=_site_url("/revenue-documents"),
+        )
     finally:
         await client.close()
 
 
-@mcp.tool
+@mcp.tool(
+    title="Get Revenue eBrief Changelog",
+    output_schema=_CHANGELOG_OUTPUT_SCHEMA,
+    annotations=_READ_ONLY,
+)
 async def get_revenue_ebrief_changelog() -> Any:
     """Get the Revenue eBrief changelog — recent updates to Revenue guidance and Tax & Duty Manuals.
 
@@ -425,43 +760,122 @@ async def get_revenue_ebrief_changelog() -> Any:
     """
     client, loader, settings = await _get_client_and_loader()
     try:
-        return await client.request("GET", "/v1/revenue/documents/changelog")
+        result = await client.request("GET", "/v1/revenue/documents/changelog")
+        return _with_attribution(
+            result,
+            source_url=_site_url("/revenue-documents"),
+            relevant_url=_site_url("/revenue-documents"),
+        )
     finally:
         await client.close()
 
 
-@mcp.tool
-async def generate_net_income_summary(
-    status: Annotated[
-        str, Field(description="The 'status' field from the base tax calculation response.")
+@mcp.tool(
+    title="Search Tax Treaties",
+    output_schema=_SEARCH_OUTPUT_SCHEMA,
+    annotations=_READ_ONLY,
+)
+async def search_tax_treaties(
+    query: Annotated[
+        str,
+        Field(description="Search terms (e.g. 'dividends withholding', 'France royalties')."),
     ],
-    message: Annotated[
-        str, Field(description="The 'message' field from the base tax calculation response.")
-    ],
-    year: Annotated[int, Field(description="Tax year (e.g. 2025).", ge=2024, le=2034)],
-    breakdown: Annotated[
-        Dict[str, Any],
-        Field(description="The full 'breakdown' object from the base tax calculation response."),
-    ],
+    country: Annotated[
+        Optional[str],
+        Field(description="Country filter. Use `list_tax_treaty_countries` to see options."),
+    ] = None,
+    limit: Annotated[int, Field(description="Maximum results to return.", ge=1, le=50)] = 10,
 ) -> Any:
-    """Generate an AI-powered plain-English summary of a tax calculation.
+    """Search Ireland's double-taxation treaty documents (treaties, protocols, MLI texts).
 
-    This takes the OUTPUT from a `calculate_tax` call (with calculator_name="base") and returns
-    a human-readable explanation of the tax breakdown, effective rates, and key insights.
-
-    Workflow: first call `calculate_tax(calculator_name="base", inputs={...})`, then pass the
-    response fields (status, message, year, breakdown) to this tool.
+    Find treaty documents by keyword and/or country. Returns titles, country, document
+    type, and identifiers. Use `get_tax_treaty_text` to read the full text of a document.
     """
     client, loader, settings = await _get_client_and_loader()
     try:
-        body = {
-            "status": status,
-            "message": message,
-            "year": year,
-            "breakdown": breakdown,
-        }
-        return await client.request(
-            "POST", "/v1/tax/calculators/net-income-summary", json_body=body
+        params: Dict[str, Any] = {"q": query, "limit": limit}
+        if country:
+            params["country"] = country
+        result = await client.request("GET", "/v1/tax-treaties", params=params)
+        return _with_attribution(
+            result,
+            source_url=_site_url("/mcp"),
+            relevant_url=_site_url("/mcp"),
+        )
+    finally:
+        await client.close()
+
+
+@mcp.tool(
+    title="Get Tax Treaty Text",
+    output_schema=_DOCUMENT_TEXT_OUTPUT_SCHEMA,
+    annotations=_READ_ONLY,
+)
+async def get_tax_treaty_text(
+    filename: Annotated[
+        str,
+        Field(
+            description=(
+                "Treaty identifier — accepts a bare filename (e.g. 'usa-1997'),"
+                " a filename with .pdf, the full Revenue PDF URL, or the 'textUrl'"
+                " value from a search result."
+            )
+        ),
+    ],
+) -> Any:
+    """Get the full text of a specific tax-treaty document.
+
+    Use `search_tax_treaties` first to find the document. URLs, paths, and bare
+    filenames are all accepted. Not all documents have extracted text available.
+    """
+    import httpx
+
+    identifier = _normalise_document_identifier(filename)
+
+    client, loader, settings = await _get_client_and_loader()
+    try:
+        result = await client.request("GET", f"/v1/tax-treaties/text/{identifier}")
+        return _with_attribution(
+            result,
+            source_url=_site_url("/mcp"),
+            relevant_url=_site_url("/mcp"),
+        )
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 404:
+            return _with_attribution(
+                {
+                    "status": "error",
+                    "message": (
+                        f"Full text not available for '{identifier}'. "
+                        "Use the search result metadata (title, description, "
+                        "keywords, country, url) instead."
+                    ),
+                },
+                source_url=_site_url("/mcp"),
+                relevant_url=_site_url("/mcp"),
+            )
+        raise
+    finally:
+        await client.close()
+
+
+@mcp.tool(
+    title="List Tax Treaty Countries",
+    output_schema=_COUNTRIES_OUTPUT_SCHEMA,
+    annotations=_READ_ONLY,
+)
+async def list_tax_treaty_countries() -> Any:
+    """List all countries with an Irish double-taxation treaty.
+
+    Use with `search_tax_treaties` to filter results by country.
+    """
+    client, loader, settings = await _get_client_and_loader()
+    try:
+        result = await client.request("GET", "/v1/tax-treaties/countries")
+        return _with_attribution(
+            result,
+            source_url=_site_url("/mcp"),
+            relevant_url=_site_url("/mcp"),
         )
     finally:
         await client.close()
@@ -492,7 +906,11 @@ _STATS_SLUG_MAP: Dict[str, str] = {
 }
 
 
-@mcp.tool
+@mcp.tool(
+    title="Get Calculator Stats",
+    output_schema=_CALCULATOR_STATS_OUTPUT_SCHEMA,
+    annotations=_READ_ONLY,
+)
 async def get_calculator_stats(
     calculator_name: Annotated[
         CalculatorName, Field(description="The calculator to get stats for.")
@@ -509,7 +927,13 @@ async def get_calculator_stats(
     stats_slug = _STATS_SLUG_MAP.get(calculator_name, calculator_name)
     client, loader, settings = await _get_client_and_loader()
     try:
-        return await client.request("GET", f"/v1/tax/calculators/{stats_slug}/stats")
+        result = await client.request("GET", f"/v1/tax/calculators/{stats_slug}/stats")
+        calculator_url = _calculator_url(calculator_name)
+        return _with_attribution(
+            result,
+            source_url=calculator_url,
+            relevant_url=calculator_url,
+        )
     finally:
         await client.close()
 

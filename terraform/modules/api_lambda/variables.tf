@@ -136,3 +136,27 @@ variable "streaming_certificate_validated" {
   type        = bool
   default     = false
 }
+
+variable "streaming_reserved_concurrency" {
+  description = "Reserved concurrency cap for the streaming Lambda (cost/abuse circuit-breaker). -1 = unreserved."
+  type        = number
+  default     = -1
+}
+
+variable "enable_streaming_waf" {
+  description = "Whether to create a WAF Web ACL (rate limiting) in front of the streaming CloudFront distribution"
+  type        = bool
+  default     = false
+}
+
+variable "streaming_waf_block_mode" {
+  description = "WAF rate rule mode: false = COUNT (observe), true = BLOCK (enforce)"
+  type        = bool
+  default     = false
+}
+
+variable "streaming_rate_limit_per_5min" {
+  description = "Max requests per source IP per 5-minute window before the WAF rate rule trips"
+  type        = number
+  default     = 600
+}
