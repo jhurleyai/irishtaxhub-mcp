@@ -20,7 +20,10 @@ that catalog or schema maintenance would obscure changes to tool behavior.
 
 `server.py` imports the existing underscored constants and helpers into its
 module namespace. This preserves existing imports while keeping every decorated
-handler in one place and retaining registration order.
+handler in one place and retaining registration order. Compatibility exports
+include `_API_DOCS_URL`, `_ATTRIBUTION_SCHEMA`, `_CALC_LIST`, `_SITE_URL`,
+`_attributed_output_schema`, `_normalise_document_identifier`, and
+`_with_attribution`.
 
 ## Contract safeguards
 

@@ -5,6 +5,8 @@ from typing import Annotated, Any, Dict, List, Optional
 from fastmcp import FastMCP
 from pydantic import Field
 
+from . import attribution as _attribution_contracts
+from . import calculator_catalog as _calculator_catalog
 from .attribution import (
     _CALCULATION_OUTPUT_SCHEMA,
     _CALCULATOR_LIST_OUTPUT_SCHEMA,
@@ -31,6 +33,13 @@ from .calculator_catalog import (
 from .client import IrishTaxHubClient
 from .openapi import OpenAPILoader, get_request_body_schema, validate_body
 from .settings import Settings
+
+# Keep historical module-level imports working after moving these definitions.
+_API_DOCS_URL = _attribution_contracts._API_DOCS_URL
+_ATTRIBUTION_SCHEMA = _attribution_contracts._ATTRIBUTION_SCHEMA
+_SITE_URL = _attribution_contracts._SITE_URL
+_attributed_output_schema = _attribution_contracts._attributed_output_schema
+_CALC_LIST = _calculator_catalog._CALC_LIST
 
 mcp = FastMCP("irishtaxhub-mcp")
 
