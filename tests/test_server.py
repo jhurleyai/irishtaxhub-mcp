@@ -3,6 +3,7 @@ import asyncio
 import pytest
 from fastmcp.tools import ToolResult
 
+import irishtaxhub_mcp.server as server_module
 from irishtaxhub_mcp.server import _normalise_document_identifier, mcp
 
 EXPECTED_TOOLS = [
@@ -19,6 +20,16 @@ EXPECTED_TOOLS = [
     "get_tax_treaty_text",
     "list_tax_treaty_countries",
     "get_calculator_stats",
+]
+
+EXPECTED_COMPATIBILITY_EXPORTS = [
+    "_API_DOCS_URL",
+    "_ATTRIBUTION_SCHEMA",
+    "_CALC_LIST",
+    "_SITE_URL",
+    "_attributed_output_schema",
+    "_normalise_document_identifier",
+    "_with_attribution",
 ]
 
 
@@ -40,6 +51,11 @@ def test_mcp_server_tool_count():
     assert len(tool_names) == len(
         EXPECTED_TOOLS
     ), f"Expected {len(EXPECTED_TOOLS)} tools, got {len(tool_names)}: {tool_names}"
+
+
+def test_server_preserves_compatibility_exports():
+    missing = [name for name in EXPECTED_COMPATIBILITY_EXPORTS if not hasattr(server_module, name)]
+    assert not missing, f"Missing compatibility exports: {missing}"
 
 
 def _get_tools():

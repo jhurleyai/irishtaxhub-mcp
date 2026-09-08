@@ -1,430 +1,47 @@
 from __future__ import annotations
 
-import json
-from datetime import datetime, timezone
-from typing import Annotated, Any, Dict, List, Literal, Optional
+from typing import Annotated, Any, Dict, List, Optional
 
 from fastmcp import FastMCP
-from fastmcp.tools import ToolResult
-from mcp.types import ResourceLink, TextContent
 from pydantic import Field
 
+from . import attribution as _attribution_contracts
+from . import calculator_catalog as _calculator_catalog
+from .attribution import (
+    _CALCULATION_OUTPUT_SCHEMA,
+    _CALCULATOR_LIST_OUTPUT_SCHEMA,
+    _CALCULATOR_SCHEMA_OUTPUT_SCHEMA,
+    _CALCULATOR_STATS_OUTPUT_SCHEMA,
+    _CATEGORIES_OUTPUT_SCHEMA,
+    _CHANGELOG_OUTPUT_SCHEMA,
+    _COUNTRIES_OUTPUT_SCHEMA,
+    _DOCUMENT_TEXT_OUTPUT_SCHEMA,
+    _KEY_DATES_OUTPUT_SCHEMA,
+    _READ_ONLY,
+    _SEARCH_OUTPUT_SCHEMA,
+    _TAX_CONSTANTS_OUTPUT_SCHEMA,
+    _site_url,
+    _with_attribution,
+)
+from .calculator_catalog import (
+    _CALCULATE_TAX_DESC,
+    _STATS_SLUG_MAP,
+    CALCULATORS,
+    CalculatorName,
+    _calculator_url,
+)
 from .client import IrishTaxHubClient
 from .openapi import OpenAPILoader, get_request_body_schema, validate_body
 from .settings import Settings
 
+# Keep historical module-level imports working after moving these definitions.
+_API_DOCS_URL = _attribution_contracts._API_DOCS_URL
+_ATTRIBUTION_SCHEMA = _attribution_contracts._ATTRIBUTION_SCHEMA
+_SITE_URL = _attribution_contracts._SITE_URL
+_attributed_output_schema = _attribution_contracts._attributed_output_schema
+_CALC_LIST = _calculator_catalog._CALC_LIST
+
 mcp = FastMCP("irishtaxhub-mcp")
-
-# Every tool in this server is read-only and reaches the external Irish Tax Hub
-# API (which fronts Revenue data), so all tools share these MCP annotations.
-# Connector-directory review requires every hint to be explicit.
-_READ_ONLY = {
-    "readOnlyHint": True,
-    "openWorldHint": False,
-    "destructiveHint": False,
-}
-
-_SITE_URL = "https://www.irishtaxhub.ie"
-_API_DOCS_URL = "https://prod.aws.irishtaxhub.ie/docs"
-
-_ATTRIBUTION_SCHEMA: Dict[str, Any] = {
-    "type": "object",
-    "description": "Source attribution and a link back to Irish Tax Hub.",
-    "properties": {
-        "provider": {"type": "string"},
-        "source_url": {"type": "string", "format": "uri"},
-        "methodology_url": {"type": "string", "format": "uri"},
-        "last_updated": {"type": "string", "format": "date"},
-        "last_updated_note": {"type": "string"},
-        "relevant_url": {"type": "string", "format": "uri"},
-        "action": {
-            "type": "object",
-            "properties": {
-                "label": {"type": "string"},
-                "url": {"type": "string", "format": "uri"},
-            },
-            "required": ["label", "url"],
-            "additionalProperties": False,
-        },
-    },
-    "required": [
-        "provider",
-        "source_url",
-        "methodology_url",
-        "last_updated",
-        "relevant_url",
-        "action",
-    ],
-    "additionalProperties": True,
-}
-
-
-def _attributed_output_schema(
-    properties: Optional[Dict[str, Any]] = None,
-    required: Optional[List[str]] = None,
-    *,
-    attribution_key: str = "attribution",
-) -> Dict[str, Any]:
-    """Build a permissive schema for API data plus the stable attribution block."""
-    output_properties = dict(properties or {})
-    output_properties[attribution_key] = _ATTRIBUTION_SCHEMA
-    return {
-        "type": "object",
-        "properties": output_properties,
-        "required": [*(required or []), attribution_key],
-        # Calculator payloads evolve independently; describe stable fields while
-        # allowing calculator-specific values that are not known to this server.
-        "additionalProperties": True,
-    }
-
-
-_CALCULATION_OUTPUT_SCHEMA = _attributed_output_schema(
-    {
-        "status": {"type": "string"},
-        "message": {"type": "string"},
-        "calculation_count": {"type": "integer"},
-        "result": {"type": "object", "additionalProperties": True},
-        "breakdown": {"type": "object", "additionalProperties": True},
-        "data": {"type": "object", "additionalProperties": True},
-    },
-    ["status"],
-)
-
-_CALCULATOR_SCHEMA_OUTPUT_SCHEMA = _attributed_output_schema(
-    {
-        "type": {"type": "string"},
-        "properties": {"type": "object", "additionalProperties": True},
-        "required": {"type": "array", "items": {"type": "string"}},
-    },
-    attribution_key="x-irish-tax-hub-attribution",
-)
-
-_CALCULATOR_LIST_OUTPUT_SCHEMA = _attributed_output_schema(
-    {
-        "result": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "name": {"type": "string"},
-                    "description": {"type": "string"},
-                    "url": {"type": "string", "format": "uri"},
-                },
-                "required": ["name", "description", "url"],
-                "additionalProperties": False,
-            },
-        }
-    },
-    ["result"],
-)
-
-_TAX_CONSTANTS_OUTPUT_SCHEMA = _attributed_output_schema(
-    {
-        "status": {"type": "string"},
-        "message": {"type": "string"},
-        "data": {"type": "object", "additionalProperties": True},
-    },
-    ["status", "data"],
-)
-
-_KEY_DATES_OUTPUT_SCHEMA = _attributed_output_schema(
-    {
-        "status": {"type": "string"},
-        "message": {"type": "string"},
-        "year": {"type": "integer"},
-        "data": {"type": "array", "items": {"type": "object"}},
-    },
-    ["status", "year", "data"],
-)
-
-_SEARCH_OUTPUT_SCHEMA = _attributed_output_schema(
-    {
-        "status": {"type": "string"},
-        "results": {"type": "array", "items": {"type": "object"}},
-        "total": {"type": "integer"},
-        "limit": {"type": "integer"},
-        "offset": {"type": "integer"},
-    },
-    ["status", "results"],
-)
-
-_DOCUMENT_TEXT_OUTPUT_SCHEMA = _attributed_output_schema(
-    {
-        "status": {"type": "string", "enum": ["success", "error"]},
-        "filename": {"type": "string"},
-        "text": {"type": "string"},
-        "message": {"type": "string"},
-    },
-    ["status"],
-)
-
-_CATEGORIES_OUTPUT_SCHEMA = _attributed_output_schema(
-    {
-        "status": {"type": "string"},
-        "categories": {"type": "array", "items": {"type": "object"}},
-    },
-    ["status", "categories"],
-)
-
-_CHANGELOG_OUTPUT_SCHEMA = _attributed_output_schema(
-    {
-        "status": {"type": "string"},
-        "entries": {"type": "array", "items": {"type": "object"}},
-        "total": {"type": "integer"},
-        "limit": {"type": "integer"},
-        "offset": {"type": "integer"},
-    },
-    ["status"],
-)
-
-_COUNTRIES_OUTPUT_SCHEMA = _attributed_output_schema(
-    {
-        "status": {"type": "string"},
-        "countries": {"type": "array", "items": {"type": "object"}},
-    },
-    ["status", "countries"],
-)
-
-_CALCULATOR_STATS_OUTPUT_SCHEMA = _attributed_output_schema(
-    {
-        "status": {"type": "string"},
-        "calculator": {"type": "string"},
-        "calculation_count": {"type": "integer", "minimum": 0},
-    },
-    ["status", "calculator", "calculation_count"],
-)
-
-
-def _site_url(path: str) -> str:
-    return f"{_SITE_URL}{path}"
-
-
-def _calculator_url(calculator_name: str) -> str:
-    slug = _STATS_SLUG_MAP.get(calculator_name, calculator_name)
-    return _site_url(f"/calculators/{slug}")
-
-
-def _with_attribution(
-    result: Any,
-    *,
-    source_url: str,
-    relevant_url: Optional[str] = None,
-    schema_result: bool = False,
-) -> ToolResult:
-    """Add visible attribution without hiding or replacing the upstream result."""
-    continue_url = relevant_url or source_url
-    attribution = {
-        "provider": "Irish Tax Hub",
-        "source_url": source_url,
-        "methodology_url": _API_DOCS_URL,
-        "last_updated": datetime.now(timezone.utc).date().isoformat(),
-        "last_updated_note": "Live data retrieved from Irish Tax Hub on this date.",
-        "relevant_url": continue_url,
-        "action": {
-            "label": "Continue on Irish Tax Hub",
-            "url": continue_url,
-        },
-    }
-
-    if isinstance(result, dict):
-        structured_content = dict(result)
-    else:
-        # FastMCP already wraps list return values in a `result` object. Keep
-        # that stable shape when supplying a custom ToolResult.
-        structured_content = {"result": result}
-
-    attribution_key = "x-irish-tax-hub-attribution" if schema_result else "attribution"
-    structured_content[attribution_key] = attribution
-
-    return ToolResult(
-        content=[
-            TextContent(
-                type="text",
-                text=json.dumps(structured_content, ensure_ascii=False, default=str),
-            ),
-            ResourceLink(
-                type="resource_link",
-                name="continue-on-irish-tax-hub",
-                title="Continue on Irish Tax Hub",
-                uri=continue_url,
-                description="Open the relevant Irish Tax Hub calculator or guide.",
-                mimeType="text/html",
-            ),
-        ],
-        structured_content=structured_content,
-        meta={"attribution": attribution},
-    )
-
-
-# All available calculator names with their API paths
-CALCULATORS: Dict[str, Dict[str, str]] = {
-    "base": {
-        "path": "/v1/tax/calculators/base",
-        "summary": (
-            "Calculate income tax, USC, and PRSI for a given salary."
-            " Supports single/married, multiple employments, tax credits."
-        ),
-    },
-    "refund": {
-        "path": "/v1/tax/calculators/refund",
-        "summary": "Estimate a PAYE tax refund by comparing tax paid vs tax owed.",
-    },
-    "tax-free-earnings": {
-        "path": "/v1/tax/calculators/tax-free-earnings",
-        "summary": (
-            "Calculate tax-free earnings date for someone"
-            " arriving in or departing Ireland mid-year."
-        ),
-    },
-    "refund-for-move-date": {
-        "path": "/v1/tax/calculators/refund-for-move-date",
-        "summary": "Calculate tax refund for a specific move date (arriving/departing Ireland).",
-    },
-    "net-to-gross": {
-        "path": "/v1/tax/calculators/net-to-gross",
-        "summary": "Reverse-calculate the gross salary needed to achieve a target net income.",
-    },
-    "rental-income": {
-        "path": "/v1/tax/calculators/rental-income",
-        "summary": (
-            "Calculate tax on rental income including" " allowable expenses and mortgage interest."
-        ),
-    },
-    "self-employed": {
-        "path": "/v1/tax/calculators/self-employed",
-        "summary": (
-            "Calculate tax for self-employed individuals" " including PRSI Class S and expenses."
-        ),
-    },
-    "capital-gains": {
-        "path": "/v1/tax/calculators/capital-gains",
-        "summary": "Calculate Capital Gains Tax (CGT) on asset disposals at 33%.",
-    },
-    "share-options": {
-        "path": "/v1/tax/calculators/share-options",
-        "summary": "Calculate tax on share option exercise (RTSO — Relevant Tax on Share Options).",
-    },
-    "share-options-cgt": {
-        "path": "/v1/tax/calculators/share-options-cgt",
-        "summary": "Calculate CGT on the sale of shares acquired via share options.",
-    },
-    "work-from-home-expense": {
-        "path": "/v1/tax/calculators/work-from-home-expense",
-        "summary": "Calculate e-worker tax relief for remote working expenses.",
-    },
-    "avc": {
-        "path": "/v1/tax/calculators/avc",
-        "summary": "Calculate maximum Additional Voluntary Contribution (AVC) and tax relief.",
-    },
-    "pension-value": {
-        "path": "/v1/tax/calculators/pension-value",
-        "summary": "Estimate pension fund value at retirement based on contributions and growth.",
-    },
-    "future-fund": {
-        "path": "/v1/tax/calculators/future-fund",
-        "summary": "Estimate future investment fund value with regular contributions.",
-    },
-    "mortgage": {
-        "path": "/v1/tax/calculators/mortgage",
-        "summary": "Calculate monthly mortgage repayments, total interest, and amortisation.",
-    },
-    "redundancy-tax": {
-        "path": "/v1/tax/calculators/redundancy-tax",
-        "summary": "Calculate tax on redundancy and termination payments (SCSB, top-up, etc.).",
-    },
-    "mortgage-affordability": {
-        "path": "/v1/tax/calculators/mortgage-affordability",
-        "summary": "Calculate maximum mortgage you can afford based on income and LTI rules.",
-    },
-    "cat": {
-        "path": "/v1/tax/calculators/cat",
-        "summary": "Calculate Capital Acquisitions Tax (CAT) on gifts and inheritances.",
-    },
-    "sarp": {
-        "path": "/v1/tax/calculators/sarp",
-        "summary": (
-            "Calculate SARP (Special Assignee Relief Programme)"
-            " tax relief for foreign assignees."
-        ),
-    },
-    "vat3": {
-        "path": "/v1/tax/calculators/vat3",
-        "summary": "Calculate VAT3 return figures for VAT-registered businesses.",
-    },
-}
-
-
-# Build the Literal type and enum from CALCULATORS keys
-CalculatorName = Literal[
-    "base",
-    "refund",
-    "tax-free-earnings",
-    "refund-for-move-date",
-    "net-to-gross",
-    "rental-income",
-    "self-employed",
-    "capital-gains",
-    "share-options",
-    "share-options-cgt",
-    "work-from-home-expense",
-    "avc",
-    "pension-value",
-    "future-fund",
-    "mortgage",
-    "redundancy-tax",
-    "mortgage-affordability",
-    "cat",
-    "sarp",
-    "vat3",
-]
-
-# Build a static description string for the calculate_tax tool
-_CALC_LIST = "\n".join(f"  - {name}: {info['summary']}" for name, info in CALCULATORS.items())
-
-_CALCULATE_TAX_DESC = f"""Run an Irish tax calculator and return the full result.
-
-Available calculators:
-{_CALC_LIST}
-
-Pass the calculator name and its required inputs. \
-Use `get_calculator_schema` first if you need to know \
-the exact input fields for a calculator.
-
-Common examples:
-
-base (income tax): {{"marital_status": "single", \
-"employment_income": {{"income": 75000, "period": "annual"}}, \
-"year": 2026}}
-
-marital_status options: single, widow, \
-married_one_income, married_two_income
-
-refund: {{"marital_status": "single", \
-"employment_income": {{"income": 50000, "tax_paid": 18000}}, \
-"year": 2026}}
-
-capital-gains: {{"sale_price": 400000, \
-"purchase_price": 250000, "purchase_date": "2018-03-15", \
-"sale_date": "2026-06-01", "year": 2026}}
-
-mortgage: {{"home_price": 400000, "deposit": 40000, \
-"loan_term_years": 30, "interest_rate": 4.0}}
-
-work-from-home-expense: {{"electricity_costs": 1200, \
-"heating_costs": 800, "internet_costs": 600, \
-"tax_year": 2026, "total_earnings": 75000, \
-"days_working_from_home": 200}}
-
-avc: {{"age": 45, "gross_earnings": 100000, "year": 2026}}
-
-share-options: {{"share_option_price": 10, \
-"sale_price": 50, "number_of_units": 1000}}
-
-redundancy-tax: {{"employment_start_date": "2010-01-01", \
-"employment_end_date": "2026-06-01", "gross_weekly_pay": 1500}}
-
-mortgage-affordability: {{"buyer_type": "first_time_buyer", \
-"gross_annual_income_1": 75000, "savings": 50000}}"""
 
 
 async def _get_client_and_loader() -> tuple[IrishTaxHubClient, OpenAPILoader, Settings]:
@@ -879,31 +496,6 @@ async def list_tax_treaty_countries() -> Any:
         )
     finally:
         await client.close()
-
-
-# Mapping from MCP calculator names to the frontend slugs used by the stats API
-_STATS_SLUG_MAP: Dict[str, str] = {
-    "base": "salary-after-tax",
-    "refund": "refund",
-    "tax-free-earnings": "arriving-ireland-tax-savings",
-    "refund-for-move-date": "arriving-ireland-tax-savings",
-    "net-to-gross": "net-to-gross",
-    "rental-income": "rental-income",
-    "self-employed": "self-employed-income",
-    "capital-gains": "capital-gains-tax",
-    "share-options": "employee-share-options",
-    "share-options-cgt": "share-sale-cgt",
-    "work-from-home-expense": "work-from-home",
-    "avc": "additional-voluntary-contribution",
-    "pension-value": "pension-value",
-    "future-fund": "auto-enrolment",
-    "mortgage": "mortgage-payments",
-    "redundancy-tax": "redundancy-tax",
-    "mortgage-affordability": "mortgage-affordability",
-    "cat": "cat",
-    "sarp": "sarp",
-    "vat3": "vat3",
-}
 
 
 @mcp.tool(
