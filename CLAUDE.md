@@ -70,3 +70,25 @@ The server exposes 13 domain-specific tools. All calculator tools validate input
 | `search_tax_treaties` | Search double-taxation treaties |
 | `get_tax_treaty_text` | Read a specific treaty document |
 | `list_tax_treaty_countries` | List treaty countries |
+
+## Deployment
+
+**Merging to `main` never deploys to production — in this repo or any other Irish Tax Hub
+repo.** Production is always a manual `workflow_dispatch` run. Here that is
+`.github/workflows/deploy-prod.yml`, which has no `push` trigger at all, so nothing you
+merge can reach production on its own.
+
+What a merge to `main` does run is staging only, and only when the merge touches the
+workflow's paths:
+
+| Workflow | Trigger | Path filter | Effect |
+| --- | --- | --- | --- |
+| `deploy-stage.yml` | push to `main`, or manual | `src/**`, `requirements.txt`, `lambda_handler.py`, `terraform/**`, `scripts/package_lambda.sh`, `run.sh` | Deploys the MCP server to staging |
+| `deploy-prod.yml` | manual only | none | Deploys the MCP server to production |
+
+The path filter bites. A merge that touches none of the listed paths deploys nothing at
+all — the change sits on `main` with no workflow run and no failure to notice. Docs, test
+and CI-config merges fall into this category.
+
+**A merged PR is therefore not a shipped feature. At most it is a staged one.** Reaching
+production means dispatching `deploy-prod.yml` deliberately.
