@@ -136,6 +136,7 @@ def test_attributed_result_exposes_links_in_structured_content_and_content_block
         "label": "Continue on Irish Tax Hub",
         "url": "https://www.irishtaxhub.ie/calculators/salary-after-tax",
     }
+    assert "source" not in attribution
     assert any(block.type == "resource_link" for block in result.content)
 
 

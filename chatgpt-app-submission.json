@@ -51,7 +51,7 @@
     "search_revenue_documents": {
       "annotations": { "readOnlyHint": true, "openWorldHint": false, "destructiveHint": false },
       "justifications": {
-        "read_only_justification": "Searches indexed Revenue guidance and returns matching document metadata without modifying the corpus.",
+        "read_only_justification": "Searches indexed Revenue guidance and returns matching document metadata without modifying the corpus. Content is reused under Revenue's PSI Licence (CC BY 4.0) with attribution in every response.",
         "open_world_justification": "Reads Irish Tax Hub's first-party document index without publishing or changing external state.",
         "destructive_justification": "Cannot delete, replace, or alter Revenue documents."
       }
@@ -59,7 +59,7 @@
     "get_revenue_document_text": {
       "annotations": { "readOnlyHint": true, "openWorldHint": false, "destructiveHint": false },
       "justifications": {
-        "read_only_justification": "Retrieves pre-extracted text for a selected Revenue document without modifying it.",
+        "read_only_justification": "Retrieves pre-extracted text for a selected Revenue document without modifying it. Content is reused under Revenue's PSI Licence (CC BY 4.0) with attribution in every response.",
         "open_world_justification": "Reads first-party indexed document text and does not publish or change external state.",
         "destructive_justification": "Cannot delete, replace, or alter Revenue documents."
       }
@@ -67,7 +67,7 @@
     "list_revenue_document_categories": {
       "annotations": { "readOnlyHint": true, "openWorldHint": false, "destructiveHint": false },
       "justifications": {
-        "read_only_justification": "Lists the available Revenue document categories and counts without modifying the index.",
+        "read_only_justification": "Lists the available Revenue document categories and counts without modifying the index. Content is reused under Revenue's PSI Licence (CC BY 4.0) with attribution in every response.",
         "open_world_justification": "Reads first-party category metadata without publishing or changing external state.",
         "destructive_justification": "Cannot delete, replace, or alter categories or documents."
       }
@@ -75,7 +75,7 @@
     "get_revenue_ebrief_changelog": {
       "annotations": { "readOnlyHint": true, "openWorldHint": false, "destructiveHint": false },
       "justifications": {
-        "read_only_justification": "Retrieves recent Revenue eBrief and Tax and Duty Manual changes without modifying the changelog.",
+        "read_only_justification": "Retrieves recent Revenue eBrief and Tax and Duty Manual changes without modifying the changelog. Content is reused under Revenue's PSI Licence (CC BY 4.0) with attribution in every response.",
         "open_world_justification": "Reads first-party changelog data without publishing or changing external state.",
         "destructive_justification": "Cannot delete, replace, or alter changelog entries or guidance."
       }
@@ -83,7 +83,7 @@
     "search_tax_treaties": {
       "annotations": { "readOnlyHint": true, "openWorldHint": false, "destructiveHint": false },
       "justifications": {
-        "read_only_justification": "Searches Ireland's indexed tax-treaty corpus and returns matching document metadata.",
+        "read_only_justification": "Searches Ireland's indexed tax-treaty corpus and returns matching document metadata. Content is reused under Revenue's PSI Licence (CC BY 4.0) with attribution in every response.",
         "open_world_justification": "Reads Irish Tax Hub's first-party treaty index without publishing or changing external state.",
         "destructive_justification": "Cannot delete, replace, or alter treaty documents."
       }
@@ -91,7 +91,7 @@
     "get_tax_treaty_text": {
       "annotations": { "readOnlyHint": true, "openWorldHint": false, "destructiveHint": false },
       "justifications": {
-        "read_only_justification": "Retrieves pre-extracted text for a selected Irish tax-treaty document without modifying it.",
+        "read_only_justification": "Retrieves pre-extracted text for a selected Irish tax-treaty document without modifying it. Content is reused under Revenue's PSI Licence (CC BY 4.0) with attribution in every response.",
         "open_world_justification": "Reads first-party indexed treaty text and does not publish or change external state.",
         "destructive_justification": "Cannot delete, replace, or alter treaty documents."
       }
@@ -99,7 +99,7 @@
     "list_tax_treaty_countries": {
       "annotations": { "readOnlyHint": true, "openWorldHint": false, "destructiveHint": false },
       "justifications": {
-        "read_only_justification": "Lists countries represented in Ireland's tax-treaty corpus without modifying the index.",
+        "read_only_justification": "Lists countries represented in Ireland's tax-treaty corpus without modifying the index. Content is reused under Revenue's PSI Licence (CC BY 4.0) with attribution in every response.",
         "open_world_justification": "Reads first-party treaty metadata without publishing or changing external state.",
         "destructive_justification": "Cannot delete, replace, or alter countries or treaty documents."
       }
@@ -143,7 +143,7 @@
       "user_prompt": "Find Irish Revenue guidance on principal private residence relief for Capital Gains Tax.",
       "file_attachment_urls": null,
       "tools_triggered": "search_revenue_documents",
-      "expected_output": "Returns matching Revenue Tax and Duty Manual documents with titles, identifiers and source metadata.",
+      "expected_output": "Returns matching Revenue Tax and Duty Manual documents with titles, identifiers and source metadata and Revenue PSI Licence attribution.",
       "expected_output_url": "https://www.irishtaxhub.ie/revenue-documents"
     },
     {
@@ -151,7 +151,7 @@
       "user_prompt": "Find the employment income provisions in Ireland's double-taxation treaty materials for France.",
       "file_attachment_urls": null,
       "tools_triggered": "search_tax_treaties",
-      "expected_output": "Returns relevant Irish tax-treaty documents for France with document types, identifiers and source metadata.",
+      "expected_output": "Returns relevant Irish tax-treaty documents for France with document types, identifiers and source metadata and Revenue PSI Licence attribution.",
       "expected_output_url": "https://www.irishtaxhub.ie/mcp"
     }
   ],

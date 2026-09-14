@@ -97,6 +97,8 @@ These trigger `calculate_tax` (and `get_calculator_schema` if the agent needs to
 
 ## Revenue Documents
 
+Results carry Revenue's PSI Licence attribution in attribution.source; reproduce it when citing.
+
 ### Search (`search_revenue_documents`)
 
 - "Find the Revenue guidance on rent tax credit"
@@ -120,15 +122,6 @@ These trigger `calculate_tax` (and `get_calculator_schema` if the agent needs to
 - "What Revenue guidance has changed recently?"
 - "Any new eBriefs this month?"
 - "Show me recent updates to Revenue manuals"
-
-## AI Summary
-
-### Plain-English Tax Summary (`generate_net_income_summary`)
-
-- "Calculate my tax on €80k and give me a plain-English summary"
-- "Break down my take-home pay in simple terms — €95k salary, married, one income"
-
-The agent will call `calculate_tax` first, then pass the result to `generate_net_income_summary` to produce a readable explanation.
 
 ## Calculator Stats
 

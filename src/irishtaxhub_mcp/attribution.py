@@ -20,6 +20,45 @@ _READ_ONLY = {
 _SITE_URL = "https://www.irishtaxhub.ie"
 _API_DOCS_URL = "https://prod.aws.irishtaxhub.ie/docs"
 
+REVENUE_ATTRIBUTION_STATEMENT = (
+    "Information provided courtesy of the Revenue Commissioners under a "
+    "Creative Commons Attribution 4.0 International (CC BY 4.0) licence"
+)
+REVENUE_LICENCE_URL = (
+    "https://www.revenue.ie/en/corporate/using-revenue/"
+    "reuse-of-public-sector-information/public-sector-information-licence.pdf"
+)
+REVENUE_TDM_INDEX_URL = "https://www.revenue.ie/en/tax-professionals/tdm/index.aspx"
+REVENUE_TREATIES_INDEX_URL = (
+    "https://www.revenue.ie/en/tax-professionals/tax-agreements/"
+    "double-taxation-treaties/tax-treaties-by-country.aspx"
+)
+REVENUE_EBRIEF_INDEX_URL = "https://www.revenue.ie/en/tax-professionals/ebrief/index.aspx"
+MODIFICATION_NOTE = (
+    "Irish Tax Hub has reformatted this material: document text is extracted from the "
+    "original PDF or page, and descriptions, keywords and groupings are Irish Tax Hub's own. "
+    "Refer to the original at source_url."
+)
+_SOURCE_NOTE = (
+    "Date this response was generated. Source material is as last retrieved from the "
+    "source identified in attribution.source."
+)
+_DEFAULT_NOTE = "Live data retrieved from Irish Tax Hub on this date."
+
+
+def revenue_source(source_url: str) -> Dict[str, Any]:
+    """The PSI Licence attribution object for material reused from revenue.ie."""
+    return {
+        "provider": "Revenue Commissioners",
+        "statement": REVENUE_ATTRIBUTION_STATEMENT,
+        "licence": "CC BY 4.0",
+        "licence_url": REVENUE_LICENCE_URL,
+        "source_url": source_url,
+        "modified": True,
+        "modification_note": MODIFICATION_NOTE,
+    }
+
+
 _ATTRIBUTION_SCHEMA: Dict[str, Any] = {
     "type": "object",
     "description": "Source attribution and a link back to Irish Tax Hub.",
@@ -38,6 +77,20 @@ _ATTRIBUTION_SCHEMA: Dict[str, Any] = {
             },
             "required": ["label", "url"],
             "additionalProperties": False,
+        },
+        "source": {
+            "type": "object",
+            "description": "Original publisher and licence of reused public sector material.",
+            "properties": {
+                "provider": {"type": "string"},
+                "statement": {"type": "string"},
+                "licence": {"type": "string"},
+                "licence_url": {"type": "string", "format": "uri"},
+                "source_url": {"type": "string", "format": "uri"},
+                "modified": {"type": "boolean"},
+                "modification_note": {"type": "string"},
+            },
+            "additionalProperties": True,
         },
     },
     "required": [
@@ -147,6 +200,9 @@ _DOCUMENT_TEXT_OUTPUT_SCHEMA = _attributed_output_schema(
         "filename": {"type": "string"},
         "text": {"type": "string"},
         "message": {"type": "string"},
+        "url": {"type": "string"},
+        "title": {"type": "string"},
+        "displayName": {"type": "string"},
     },
     ["status"],
 )
@@ -198,21 +254,15 @@ def _with_attribution(
     source_url: str,
     relevant_url: Optional[str] = None,
     schema_result: bool = False,
+    source: Optional[Dict[str, Any]] = None,
 ) -> ToolResult:
-    """Add visible attribution without hiding or replacing the upstream result."""
+    """Add visible attribution without hiding or replacing the upstream result.
+
+    ``source`` is the original publisher's attribution (see ``revenue_source``). If the
+    upstream payload already carries one (the API's ``attribution`` object), that wins and
+    is moved under ``attribution.source``.
+    """
     continue_url = relevant_url or source_url
-    attribution = {
-        "provider": "Irish Tax Hub",
-        "source_url": source_url,
-        "methodology_url": _API_DOCS_URL,
-        "last_updated": datetime.now(timezone.utc).date().isoformat(),
-        "last_updated_note": "Live data retrieved from Irish Tax Hub on this date.",
-        "relevant_url": continue_url,
-        "action": {
-            "label": "Continue on Irish Tax Hub",
-            "url": continue_url,
-        },
-    }
 
     if isinstance(result, dict):
         structured_content = dict(result)
@@ -220,6 +270,25 @@ def _with_attribution(
         # FastMCP wraps lists in a `result` object; retain that shape when a
         # custom ToolResult supplies the structured content.
         structured_content = {"result": result}
+
+    upstream = structured_content.get("attribution")
+    if isinstance(upstream, dict) and "statement" in upstream:
+        source = structured_content.pop("attribution")
+
+    attribution: Dict[str, Any] = {
+        "provider": "Irish Tax Hub",
+        "source_url": source_url,
+        "methodology_url": _API_DOCS_URL,
+        "last_updated": datetime.now(timezone.utc).date().isoformat(),
+        "last_updated_note": _SOURCE_NOTE if source else _DEFAULT_NOTE,
+        "relevant_url": continue_url,
+        "action": {
+            "label": "Continue on Irish Tax Hub",
+            "url": continue_url,
+        },
+    }
+    if source:
+        attribution["source"] = source
 
     attribution_key = "x-irish-tax-hub-attribution" if schema_result else "attribution"
     structured_content[attribution_key] = attribution
