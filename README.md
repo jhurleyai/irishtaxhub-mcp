@@ -31,6 +31,19 @@ standard input/output as described below.
 Tools are deliberately curated rather than generated dynamically. The OpenAPI document is used to
 validate calculator requests, while stable tool names and descriptions form the MCP interface.
 
+## Source material and licensing
+
+The Revenue document, eBrief and tax-treaty tools return material published by the Office of
+the Revenue Commissioners and reused under Revenue's [Public Sector Information Licence](https://www.revenue.ie/en/corporate/using-revenue/reuse-of-public-sector-information/public-sector-information-licence.pdf)
+(CC BY 4.0):
+
+> Information provided courtesy of the Revenue Commissioners under a Creative Commons
+> Attribution 4.0 International (CC BY 4.0) licence
+
+Every such result carries this statement in `attribution.source`. Document text is extracted
+from Revenue's original PDFs; descriptions, keywords and groupings are Irish Tax Hub's own.
+Irish Tax Hub is not affiliated with or endorsed by Revenue.
+
 ## Install
 
 Python 3.11 and Poetry are recommended:

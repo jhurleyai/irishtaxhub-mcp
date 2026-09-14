@@ -20,8 +20,12 @@ from .attribution import (
     _READ_ONLY,
     _SEARCH_OUTPUT_SCHEMA,
     _TAX_CONSTANTS_OUTPUT_SCHEMA,
+    REVENUE_EBRIEF_INDEX_URL,
+    REVENUE_TDM_INDEX_URL,
+    REVENUE_TREATIES_INDEX_URL,
     _site_url,
     _with_attribution,
+    revenue_source,
 )
 from .calculator_catalog import (
     _CALCULATE_TAX_DESC,
@@ -41,7 +45,21 @@ _SITE_URL = _attribution_contracts._SITE_URL
 _attributed_output_schema = _attribution_contracts._attributed_output_schema
 _CALC_LIST = _calculator_catalog._CALC_LIST
 
-mcp = FastMCP("irishtaxhub-mcp")
+SERVER_INSTRUCTIONS = (
+    "Irish Tax Hub tools return Irish tax calculations and reference material. The Revenue "
+    "document, eBrief and tax-treaty tools return material published by the Office of the "
+    "Revenue Commissioners (revenue.ie) and reused under Revenue's Public Sector Information "
+    "Licence (CC BY 4.0). When your answer relies on that material: include the statement "
+    '"Information provided courtesy of the Revenue Commissioners under a Creative Commons '
+    'Attribution 4.0 International (CC BY 4.0) licence"; link to the original document using '
+    "the result's `url` field or `attribution.source.source_url`; and note that document text "
+    "is extracted from the original and that descriptions and keywords are Irish Tax Hub's own. "
+    'A few records come from gov.ie rather than Revenue (category "PRSI (gov.ie)"); where a '
+    "result carries its own `attribution` and `licenceUrl` fields, reproduce those instead. "
+    "Do not present Irish Tax Hub or its tools as official or endorsed by Revenue."
+)
+
+mcp = FastMCP("irishtaxhub-mcp", instructions=SERVER_INSTRUCTIONS)
 
 
 async def _get_client_and_loader() -> tuple[IrishTaxHubClient, OpenAPILoader, Settings]:
@@ -257,6 +275,10 @@ async def search_revenue_documents(
     Find official Revenue guidance documents by keyword.
     Returns document titles, categories, and filenames.
     Use `get_revenue_document_text` to read the full text of a specific document.
+
+    Content is reused from public sector sources, normally revenue.ie under Revenue's PSI
+    Licence (CC BY 4.0); reproduce the result's own attribution where present, otherwise
+    attribution.source.statement, when citing.
     """
     client, loader, settings = await _get_client_and_loader()
     try:
@@ -268,6 +290,7 @@ async def search_revenue_documents(
             result,
             source_url=_site_url("/revenue-documents"),
             relevant_url=_site_url("/revenue-documents"),
+            source=revenue_source(REVENUE_TDM_INDEX_URL),
         )
     finally:
         await client.close()
@@ -311,6 +334,10 @@ async def get_revenue_document_text(
     Use `search_revenue_documents` first to find the document. You can pass
     the ``url`` from the search result directly — URLs, paths, and bare
     filenames are all accepted. Not all documents have extracted text available.
+
+    Content is reused from public sector sources, normally revenue.ie under Revenue's PSI
+    Licence (CC BY 4.0); reproduce the result's own attribution where present, otherwise
+    attribution.source.statement, when citing.
     """
     import httpx
 
@@ -319,10 +346,12 @@ async def get_revenue_document_text(
     client, loader, settings = await _get_client_and_loader()
     try:
         result = await client.request("GET", f"/v1/revenue/documents/text/{identifier}")
+        result_url = result.get("url") if isinstance(result, dict) else None
         return _with_attribution(
             result,
             source_url=_site_url("/revenue-documents"),
             relevant_url=_site_url("/revenue-documents"),
+            source=revenue_source(result_url or REVENUE_TDM_INDEX_URL),
         )
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 404:
@@ -337,6 +366,7 @@ async def get_revenue_document_text(
                 },
                 source_url=_site_url("/revenue-documents"),
                 relevant_url=_site_url("/revenue-documents"),
+                source=revenue_source(REVENUE_TDM_INDEX_URL),
             )
         raise
     finally:
@@ -352,6 +382,10 @@ async def list_revenue_document_categories() -> Any:
     """List all available categories for Revenue Tax & Duty Manual documents.
 
     Use with `search_revenue_documents` to filter results by category.
+
+    Content is reused from public sector sources, normally revenue.ie under Revenue's PSI
+    Licence (CC BY 4.0); reproduce the result's own attribution where present, otherwise
+    attribution.source.statement, when citing.
     """
     client, loader, settings = await _get_client_and_loader()
     try:
@@ -360,6 +394,7 @@ async def list_revenue_document_categories() -> Any:
             result,
             source_url=_site_url("/revenue-documents"),
             relevant_url=_site_url("/revenue-documents"),
+            source=revenue_source(REVENUE_TDM_INDEX_URL),
         )
     finally:
         await client.close()
@@ -374,6 +409,10 @@ async def get_revenue_ebrief_changelog() -> Any:
     """Get the Revenue eBrief changelog — recent updates to Revenue guidance and Tax & Duty Manuals.
 
     Useful for checking what Revenue guidance has changed recently.
+
+    Content is reused from public sector sources, normally revenue.ie under Revenue's PSI
+    Licence (CC BY 4.0); reproduce the result's own attribution where present, otherwise
+    attribution.source.statement, when citing.
     """
     client, loader, settings = await _get_client_and_loader()
     try:
@@ -382,6 +421,7 @@ async def get_revenue_ebrief_changelog() -> Any:
             result,
             source_url=_site_url("/revenue-documents"),
             relevant_url=_site_url("/revenue-documents"),
+            source=revenue_source(REVENUE_EBRIEF_INDEX_URL),
         )
     finally:
         await client.close()
@@ -407,6 +447,10 @@ async def search_tax_treaties(
 
     Find treaty documents by keyword and/or country. Returns titles, country, document
     type, and identifiers. Use `get_tax_treaty_text` to read the full text of a document.
+
+    Content is reused from public sector sources, normally revenue.ie under Revenue's PSI
+    Licence (CC BY 4.0); reproduce the result's own attribution where present, otherwise
+    attribution.source.statement, when citing.
     """
     client, loader, settings = await _get_client_and_loader()
     try:
@@ -418,6 +462,7 @@ async def search_tax_treaties(
             result,
             source_url=_site_url("/mcp"),
             relevant_url=_site_url("/mcp"),
+            source=revenue_source(REVENUE_TREATIES_INDEX_URL),
         )
     finally:
         await client.close()
@@ -444,6 +489,10 @@ async def get_tax_treaty_text(
 
     Use `search_tax_treaties` first to find the document. URLs, paths, and bare
     filenames are all accepted. Not all documents have extracted text available.
+
+    Content is reused from public sector sources, normally revenue.ie under Revenue's PSI
+    Licence (CC BY 4.0); reproduce the result's own attribution where present, otherwise
+    attribution.source.statement, when citing.
     """
     import httpx
 
@@ -452,10 +501,12 @@ async def get_tax_treaty_text(
     client, loader, settings = await _get_client_and_loader()
     try:
         result = await client.request("GET", f"/v1/tax-treaties/text/{identifier}")
+        result_url = result.get("url") if isinstance(result, dict) else None
         return _with_attribution(
             result,
             source_url=_site_url("/mcp"),
             relevant_url=_site_url("/mcp"),
+            source=revenue_source(result_url or REVENUE_TREATIES_INDEX_URL),
         )
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 404:
@@ -470,6 +521,7 @@ async def get_tax_treaty_text(
                 },
                 source_url=_site_url("/mcp"),
                 relevant_url=_site_url("/mcp"),
+                source=revenue_source(REVENUE_TREATIES_INDEX_URL),
             )
         raise
     finally:
@@ -485,6 +537,10 @@ async def list_tax_treaty_countries() -> Any:
     """List all countries with an Irish double-taxation treaty.
 
     Use with `search_tax_treaties` to filter results by country.
+
+    Content is reused from public sector sources, normally revenue.ie under Revenue's PSI
+    Licence (CC BY 4.0); reproduce the result's own attribution where present, otherwise
+    attribution.source.statement, when citing.
     """
     client, loader, settings = await _get_client_and_loader()
     try:
@@ -493,6 +549,7 @@ async def list_tax_treaty_countries() -> Any:
             result,
             source_url=_site_url("/mcp"),
             relevant_url=_site_url("/mcp"),
+            source=revenue_source(REVENUE_TREATIES_INDEX_URL),
         )
     finally:
         await client.close()
